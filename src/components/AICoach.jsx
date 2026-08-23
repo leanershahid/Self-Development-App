@@ -4,7 +4,7 @@ import { Bot, Sparkles, Loader2, RefreshCw, ChevronDown, ChevronUp, Zap, Brain, 
 import Navbar from "./NavBar";
 import { supabase } from "../supabase";
 
-const GEMINI_API_KEY = "AQ.Ab8RN6K3LNwQEJwJhaJJZmqqTMqdpplFelcUCHmfmN1o5U1kGw";
+const GEMINI_API_KEY = "AQ.Ab8RN6LW2yl3vp7Aib0zssqdloHPwuKr3DFqsVPzwxQR9vhoHA";
 const TODAY = new Date().toISOString().split("T")[0];
 
 
