@@ -6,9 +6,9 @@ import CloudinaryUpload from "./CloudinaryUpload";
 import Chart from "react-apexcharts";
 import { motion, AnimatePresence } from "framer-motion";
 
-const supabaseUrl = "https://quufeiwzsgiuwkeyjjns.supabase.co";
+const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
 const supabaseAnonKey =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dWZlaXd6c2dpdXdrZXlqam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODQ5OTYsImV4cCI6MjA4MzQ2MDk5Nn0.KL0XNEg4o4RVMJOfAQdWQekug_sw2I0KNTLkj_73_sg";
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI";
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -712,7 +712,7 @@ export default function MoneyPage() {
                     transition={{ delay: 0.1 }}
                     className="text-center mb-10 relative"
                 >
-                    <input ref={scanFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanFile} />
+                    <input ref={scanFileRef} type="file" accept="image/*" className="hidden" onChange={handleScanFile} />
 
                     <div className="absolute right-0 top-0 hidden md:flex gap-2 group">
                         <button

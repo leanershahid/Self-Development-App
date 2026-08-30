@@ -12,12 +12,13 @@ import {
   Clock,
   TrendingDown,
   X,
+  Check,
 } from "lucide-react";
 import Navbar from "./NavBar";
 
-const supabaseUrl = "https://quufeiwzsgiuwkeyjjns.supabase.co";
+const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
 const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dWZlaXd6c2dpdXdrZXlqam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODQ5OTYsImV4cCI6MjA4MzQ2MDk5Nn0.KL0XNEg4o4RVMJOfAQdWQekug_sw2I0KNTLkj_73_sg";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI";
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -38,6 +39,8 @@ export default function AchievementsPage() {
     fetchAchievements();
   }, []);
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
   async function fetchAchievements() {
     setLoading(true);
     const { data } = await supabase
@@ -45,16 +48,64 @@ export default function AchievementsPage() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    const enrichedData = (data || []).map((achievement) => ({
-      ...achievement,
-      ...calculateProgress(achievement),
-    }));
+    const ids = (data || []).map((a) => a.id);
+    let logsByAchievement = {};
+    if (ids.length > 0) {
+      const { data: logs, error: logsError } = await supabase
+        .from("achievement_logs")
+        .select("*")
+        .in("achievement_id", ids);
+      if (logsError) console.error("Error fetching achievement logs:", logsError);
+      logsByAchievement = (logs || []).reduce((acc, log) => {
+        (acc[log.achievement_id] ||= []).push(log);
+        return acc;
+      }, {});
+    }
+
+    const enrichedData = (data || []).map((achievement) => {
+      const logs = logsByAchievement[achievement.id] || [];
+      return {
+        ...achievement,
+        logs,
+        ...calculateProgress(achievement, logs),
+      };
+    });
 
     setAchievements(enrichedData);
     setLoading(false);
   }
 
-  function calculateProgress(achievement) {
+  async function markDay(achievementId, done) {
+    const achievement = achievements.find((a) => a.id === achievementId);
+    const existing = achievement?.logs.find((l) => l.log_date === todayStr);
+    // clicking the already-active state clears today's log back to unmarked
+    const clearing = existing && existing.done === done;
+
+    const { error } = clearing
+      ? await supabase
+          .from("achievement_logs")
+          .delete()
+          .eq("achievement_id", achievementId)
+          .eq("log_date", todayStr)
+      : await supabase
+          .from("achievement_logs")
+          .upsert(
+            { achievement_id: achievementId, log_date: todayStr, done },
+            { onConflict: "achievement_id,log_date" }
+          );
+
+    if (error) {
+      console.error("Error logging directive:", error);
+      alert("Failed to save today's log. Please try again.");
+      return;
+    }
+    await fetchAchievements();
+  }
+
+  function calculateProgress(achievement, logs = []) {
+    const doneCount = logs.filter((l) => l.done).length;
+    const todayLog = logs.find((l) => l.log_date === todayStr);
+
     if (!achievement.start_date || !achievement.target_date) {
       return {
         daysPassed: 0,
@@ -62,7 +113,8 @@ export default function AchievementsPage() {
         expectedProgress: 0,
         isOnTrack: true,
         daysRemaining: 0,
-        autoCurrentValue: achievement.current_value,
+        autoCurrentValue: doneCount,
+        todayLog,
       };
     }
 
@@ -90,15 +142,15 @@ export default function AchievementsPage() {
       Math.ceil((target - now) / (1000 * 60 * 60 * 24))
     );
 
-    const autoCurrentValue = Math.min(
+    const expectedProgress = Math.min(
       achievement.target_value,
       Math.floor((achievement.target_value / totalDays) * daysPassed)
     );
 
-    const expectedProgress = autoCurrentValue;
+    const actualCurrentValue = Math.min(achievement.target_value, doneCount);
 
     const actualPercentage =
-      (autoCurrentValue / achievement.target_value) * 100;
+      (actualCurrentValue / achievement.target_value) * 100;
     const expectedPercentage = (expectedProgress / achievement.target_value) * 100;
 
     return {
@@ -108,7 +160,8 @@ export default function AchievementsPage() {
       expectedProgress,
       isOnTrack: actualPercentage >= expectedPercentage - 5,
       dailyTarget: (achievement.target_value / totalDays).toFixed(1),
-      autoCurrentValue,
+      autoCurrentValue: actualCurrentValue,
+      todayLog,
     };
   }
 
@@ -606,18 +659,46 @@ export default function AchievementsPage() {
                       </div>
                     )}
 
-                    {/* Auto Progress Indicator */}
-                    <div className="bg-gradient-to-br from-indigo-900/20 to-blue-900/20 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-indigo-500/20 flex items-center gap-3">
-                      <div className="p-1.5 sm:p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg shrink-0">
-                        <Zap size={14} className="text-indigo-400" />
+                    {/* Daily Did / Didn't Log */}
+                    <div className="bg-gradient-to-br from-indigo-900/20 to-blue-900/20 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-indigo-500/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="p-1.5 sm:p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg shrink-0">
+                          <Zap size={14} className="text-indigo-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] uppercase font-mono tracking-widest text-indigo-300">
+                            Today's Log
+                          </div>
+                          <div className="text-xs font-light text-gray-400 mt-0.5">
+                            {achievement.todayLog
+                              ? achievement.todayLog.done
+                                ? "Marked as done today"
+                                : "Marked as missed today"
+                              : "Not logged yet today"}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase font-mono tracking-widest text-indigo-300">
-                          Autonomous Sync
-                        </div>
-                        <div className="text-xs font-light text-gray-400 mt-0.5">
-                          Live telemetry feed active
-                        </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => markDay(achievement.id, true)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                            achievement.todayLog?.done
+                              ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-400"
+                              : "bg-gray-900/40 border border-white/10 text-gray-400 hover:border-emerald-500/40 hover:text-emerald-400"
+                          }`}
+                        >
+                          <Check size={12} /> Did
+                        </button>
+                        <button
+                          onClick={() => markDay(achievement.id, false)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                            achievement.todayLog && !achievement.todayLog.done
+                              ? "bg-rose-500/20 border border-rose-500/50 text-rose-400"
+                              : "bg-gray-900/40 border border-white/10 text-gray-400 hover:border-rose-500/40 hover:text-rose-400"
+                          }`}
+                        >
+                          <X size={12} /> Didn't
+                        </button>
                       </div>
                     </div>
 

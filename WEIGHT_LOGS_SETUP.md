@@ -17,7 +17,7 @@ CREATE POLICY "Allow all on weight_logs" ON weight_logs FOR ALL USING (true);
 ```
 
 ## Steps:
-1. Go to https://supabase.com/dashboard/project/quufeiwzsgiuwkeyjjns/sql/new
+1. Go to https://supabase.com/dashboard/project/qwjujuvtfqahapohhfzs/sql/new
 2. Paste the SQL above
 3. Click "Run"
 

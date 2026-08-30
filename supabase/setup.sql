@@ -23,7 +23,7 @@ SELECT cron.schedule(
   '*/30 * * * *',
   $$
   SELECT net.http_post(
-    url := 'https://quufeiwzsgiuwkeyjjns.supabase.co/functions/v1/todo-reminder',
+    url := 'https://qwjujuvtfqahapohhfzs.supabase.co/functions/v1/todo-reminder',
     headers := jsonb_build_object('Content-Type', 'application/json'),
     body := '{}'::jsonb
   );
@@ -36,7 +36,7 @@ SELECT cron.schedule(
   '0 10 * * *',
   $$
   SELECT net.http_post(
-    url := 'https://quufeiwzsgiuwkeyjjns.supabase.co/functions/v1/send-push',
+    url := 'https://qwjujuvtfqahapohhfzs.supabase.co/functions/v1/send-push',
     headers := jsonb_build_object('Content-Type', 'application/json'),
     body := '{}'::jsonb
   );
@@ -49,7 +49,7 @@ SELECT cron.schedule(
   '0 8 * * *',
   $$
   SELECT net.http_post(
-    url := 'https://quufeiwzsgiuwkeyjjns.supabase.co/functions/v1/todo-reminder',
+    url := 'https://qwjujuvtfqahapohhfzs.supabase.co/functions/v1/todo-reminder',
     headers := jsonb_build_object('Content-Type', 'application/json'),
     body := '{"type":"morning"}'::jsonb
   );
@@ -62,7 +62,7 @@ SELECT cron.schedule(
   '0 21 * * *',
   $$
   SELECT net.http_post(
-    url := 'https://quufeiwzsgiuwkeyjjns.supabase.co/functions/v1/todo-reminder',
+    url := 'https://qwjujuvtfqahapohhfzs.supabase.co/functions/v1/todo-reminder',
     headers := jsonb_build_object('Content-Type', 'application/json'),
     body := '{"type":"night"}'::jsonb
   );

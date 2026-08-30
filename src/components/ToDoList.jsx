@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Trash2, Edit2, Plus, X, RefreshCw, Camera, Clock, Sparkles, TrendingUp, Flame, AlertTriangle } from 'lucide-react';
+import { Check, Trash2, Edit2, Plus, X, RefreshCw, Camera, Clock, Sparkles, TrendingUp, Flame, AlertTriangle, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import Navbar from './NavBar';
 import TodaysQuotes from './TodaysQuotes';
 import CloudinaryUpload from './CloudinaryUpload';
 import { useTodoReminder } from '../utils/useTodoReminder';
 
-const supabaseUrl = 'https://quufeiwzsgiuwkeyjjns.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dWZlaXd6c2dpdXdrZXlqam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODQ5OTYsImV4cCI6MjA4MzQ2MDk5Nn0.KL0XNEg4o4RVMJOfAQdWQekug_sw2I0KNTLkj_73_sg';
+const supabaseUrl = 'https://qwjujuvtfqahapohhfzs.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function TodoList() {
+  const navigate = useNavigate();
   const [todos, setTodos]           = useState([]);
   const [newTodo, setNewTodo]       = useState('');
   const [newPriority, setNewPriority] = useState('medium');
@@ -26,6 +28,8 @@ export default function TodoList() {
   const [addingTodo, setAddingTodo] = useState(false);
   const [xpPopup, setXpPopup]       = useState(null); // { id, xp }
   const [streak, setStreak]         = useState(() => parseInt(localStorage.getItem('todo_streak') || '0'));
+  const [todayTransactions, setTodayTransactions] = useState([]);
+  const [txLoading, setTxLoading]   = useState(false);
 
   const defaultTodos = [
   "Gym",
@@ -37,9 +41,27 @@ export default function TodoList() {
 
   useEffect(() => {
     loadTodos();
+    loadTodayTransactions();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const loadTodayTransactions = async () => {
+    setTxLoading(true);
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('money_transactions')
+        .select('*')
+        .eq('date', todayStr)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setTodayTransactions(data || []);
+    } catch (error) {
+      console.error("Error loading today's transactions:", error);
+    }
+    setTxLoading(false);
+  };
 
   const formatDateTime = () => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -257,6 +279,9 @@ export default function TodoList() {
   const canRegenerate = lastRegenerate !== new Date().toDateString();
   const completionPercentage = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0;
 
+  const todayIncome = todayTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+  const todayExpense = todayTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
   return (
     <div className="min-h-screen bg-[#060913] text-gray-200">
       <Navbar />
@@ -472,6 +497,64 @@ export default function TodoList() {
             </div>
           </div>
         )}
+
+        {/* Today's Transactions (Finance Vault) */}
+        <div className="dark-glass rounded-2xl p-5 mb-6 animate-slideIn" style={{ animationDelay: '0.25s' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 text-emerald-400">
+                <Wallet size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-100 tracking-wide">Today's Transactions</h3>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Finance Vault</p>
+              </div>
+            </div>
+            <button onClick={() => navigate('/money')}
+              className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 hover:text-cyan-300 transition-colors">
+              View All →
+            </button>
+          </div>
+
+          {(todayIncome > 0 || todayExpense > 0) && (
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="px-3 py-2.5 bg-gray-900/60 rounded-xl border border-emerald-500/10 flex items-center gap-2">
+                <ArrowUpRight size={14} className="text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-emerald-400">₹{todayIncome.toLocaleString()}</p>
+                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">Income</p>
+                </div>
+              </div>
+              <div className="px-3 py-2.5 bg-gray-900/60 rounded-xl border border-rose-500/10 flex items-center gap-2">
+                <ArrowDownRight size={14} className="text-rose-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-rose-400">₹{todayExpense.toLocaleString()}</p>
+                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">Expense</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {txLoading ? (
+            <p className="text-xs text-gray-600 font-mono text-center py-4">Loading...</p>
+          ) : todayTransactions.length === 0 ? (
+            <p className="text-xs text-gray-600 font-mono text-center py-4">No transactions logged today.</p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {todayTransactions.map(t => (
+                <div key={t.id} className="flex items-center justify-between px-3 py-2.5 bg-gray-900/40 rounded-xl border border-white/5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-200 truncate">{t.title}</p>
+                    <p className="text-[10px] text-gray-500">{t.category || 'Uncategorized'}</p>
+                  </div>
+                  <p className={`text-sm font-medium shrink-0 ml-3 ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {t.type === 'income' ? '+' : '-'}₹{Number(t.amount).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Mission Directives Header */}
         <div className="flex items-center justify-between mb-6 px-2 animate-slideIn" style={{ animationDelay: '0.3s' }}>

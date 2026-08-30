@@ -5,8 +5,8 @@ import { BookOpen, Plus, X, Check, Star, TrendingUp, Pencil, StickyNote, Layers,
 import Navbar from './NavBar';
 
 const supabase = createClient(
-  'https://quufeiwzsgiuwkeyjjns.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dWZlaXd6c2dpdXdrZXlqam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODQ5OTYsImV4cCI6MjA4MzQ2MDk5Nn0.KL0XNEg4o4RVMJOfAQdWQekug_sw2I0KNTLkj_73_sg'
+  'https://qwjujuvtfqahapohhfzs.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
 );
 
 const GLASS = { background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' };
@@ -382,34 +382,37 @@ export default function BooksTracker() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Notes Modal */}
+      {/* Notes Modal — full page */}
       <AnimatePresence>
         {noteModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
-            onClick={() => setNoteModal(null)}>
-            <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
-              className="w-full max-w-md rounded-3xl p-6" style={GLASS}
-              onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-xs font-mono uppercase tracking-widest text-yellow-400 mb-0.5">Notes</p>
-                  <h3 className="font-bold text-slate-200">{noteModal.title}</h3>
-                </div>
-                <button onClick={() => setNoteModal(null)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
+            className="fixed inset-0 flex flex-col"
+            style={{ zIndex: 2000, background: 'linear-gradient(160deg, #EDE8F5 0%, #f4f2fa 30%, #ffffff 55%, #eef1fb 78%, #e3e8f7 100%)' }}>
+            <div className="flex items-center justify-between px-4 md:px-8 py-5 border-b border-white/10 shrink-0">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-widest text-yellow-500 mb-0.5">Notes</p>
+                <h3 className="font-bold text-slate-800 text-lg">{noteModal.title}</h3>
               </div>
-              <textarea rows={6} value={noteText[noteModal.id] ?? ''}
+              <button onClick={() => setNoteModal(null)}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 transition-all"
+                style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(134,151,196,0.35)' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 max-w-3xl mx-auto w-full">
+              <textarea autoFocus value={noteText[noteModal.id] ?? ''}
                 onChange={e => setNoteText(n => ({ ...n, [noteModal.id]: e.target.value }))}
                 placeholder="Write your notes here..."
-                className="w-full px-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none resize-none mb-4"
-                style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                className="w-full h-full min-h-[60vh] px-5 py-4 rounded-2xl text-sm text-slate-800 placeholder-slate-500 focus:outline-none resize-none leading-7"
+                style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(134,151,196,0.35)' }} />
+            </div>
+            <div className="px-4 md:px-8 py-5 border-t border-white/10 shrink-0">
               <button onClick={async () => { await saveNote(noteModal.id); setNoteModal(null); }}
-                className="w-full py-3 rounded-xl text-sm font-bold uppercase tracking-wider"
-                style={{ background: 'rgba(74,222,128,0.2)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
+                className="w-full max-w-3xl mx-auto block py-3.5 rounded-xl text-sm font-bold uppercase tracking-wider"
+                style={{ background: 'rgba(74,222,128,0.2)', border: '1px solid rgba(74,222,128,0.4)', color: '#16a34a' }}>
                 Save Note
               </button>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
