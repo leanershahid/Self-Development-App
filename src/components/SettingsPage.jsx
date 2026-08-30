@@ -17,6 +17,7 @@ const THEME_LIST = [
 
 export default function SettingsPage() {
   const { theme, changeTheme } = useTheme();
+  const [pinEnabled, setPinEnabled] = useState(() => localStorage.getItem('pin_lock_enabled') !== 'false');
   const [timeout, setTimeout_] = useState(() => parseInt(localStorage.getItem('pin_timeout_minutes') || '15'));
   const [saved, setSaved]      = useState(false);
   const [exporting, setExporting] = useState(null); // 'summary' | 'finance' | null
@@ -36,6 +37,7 @@ export default function SettingsPage() {
 
   const save = () => {
     localStorage.setItem('pin_timeout_minutes', timeout);
+    localStorage.setItem('pin_lock_enabled', pinEnabled ? 'true' : 'false');
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -80,16 +82,38 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-600 font-mono mt-3">Changes apply instantly across the app.</p>
           </motion.div>
 
-          {/* PIN Lock Timeout */}
+          {/* PIN Lock */}
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }} className="rounded-3xl p-6" style={GLASS}>
-            <h2 className="text-sm font-mono uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-              <Lock size={14} /> PIN Lock Timeout
-            </h2>
-            <div className="flex items-center gap-4">
-              <input type="range" min={1} max={120} value={timeout} onChange={e => setTimeout_(+e.target.value)} className="flex-1" />
-              <span className="text-lg font-bold w-20 text-right" style={{ color: accentColor }}>{timeout} min</span>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-mono uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <Lock size={14} /> PIN Lock
+              </h2>
+              <button
+                onClick={() => setPinEnabled(v => !v)}
+                className="relative w-12 h-6 rounded-full transition-colors"
+                style={{ background: pinEnabled ? accentColor + '40' : 'rgba(255,255,255,0.1)' }}
+              >
+                <span
+                  className="absolute top-0.5 w-5 h-5 rounded-full transition-all"
+                  style={{
+                    left: pinEnabled ? 'calc(100% - 22px)' : '2px',
+                    background: pinEnabled ? accentColor : '#475569',
+                  }}
+                />
+              </button>
             </div>
-            <p className="text-xs text-slate-600 font-mono mt-2">App re-locks after {timeout} minute{timeout !== 1 ? 's' : ''} of inactivity.</p>
+
+            {pinEnabled ? (
+              <>
+                <div className="flex items-center gap-4">
+                  <input type="range" min={1} max={120} value={timeout} onChange={e => setTimeout_(+e.target.value)} className="flex-1" />
+                  <span className="text-lg font-bold w-20 text-right" style={{ color: accentColor }}>{timeout} min</span>
+                </div>
+                <p className="text-xs text-slate-600 font-mono mt-2">App re-locks after {timeout} minute{timeout !== 1 ? 's' : ''} of inactivity.</p>
+              </>
+            ) : (
+              <p className="text-xs text-slate-600 font-mono">PIN lock is off — the app will open directly without asking for a PIN.</p>
+            )}
           </motion.div>
 
           {/* Export Reports */}
