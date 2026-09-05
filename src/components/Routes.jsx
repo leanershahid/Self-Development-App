@@ -24,6 +24,7 @@ import GalleryPage from "./GalleryPage";
 import MirrorTalk from "./MirrorTalk";
 import FearCrusher from "./FearCrusher";
 import ComfortZone from "./ComfortZone";
+import PatienceMarker from "./PatienceMarker";
 import AICoach from "./AICoach";
 import ScriptWriter from "./ScriptWriter";
 import SettingsPage from "./SettingsPage";
@@ -60,6 +61,7 @@ function RoutesConfig() {
                 <Route path="/mirror-talk" element={<MirrorTalk />} />
                 <Route path="/fear-crusher" element={<FearCrusher />} />
                 <Route path="/comfort-zone" element={<ComfortZone />} />
+                <Route path="/patience-marker" element={<PatienceMarker />} />
                 <Route path="/ai-coach" element={<AICoach />} />
                 <Route path="/script-writer" element={<ScriptWriter />} />
                 <Route path="/settings" element={<SettingsPage />} />

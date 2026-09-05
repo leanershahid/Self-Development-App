@@ -426,6 +426,18 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ---------------------------------------------------------------------------
+-- Patience Marker
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS patience_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  trigger TEXT,
+  intensity INTEGER,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================================================
 -- Row Level Security — permissive "anyone can manage" policy on every table
 -- (matches this app's existing single-user, no-auth convention)
@@ -443,7 +455,7 @@ BEGIN
       'gym_logs','weight_logs','eye_health_logs','user_profile','job_applications',
       'daily_todo_summary','daily_performance','daily_points','weekly_points',
       'monthly_points','quotes','scripts','pomodoro_sessions','gallery','memories',
-      'push_subscriptions'
+      'push_subscriptions','patience_logs'
     ])
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);

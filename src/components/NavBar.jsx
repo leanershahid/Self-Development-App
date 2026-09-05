@@ -69,6 +69,7 @@ const NAV_GROUPS = [
       { label: "Mirror Talk",   path: "/mirror-talk",   Icon: Mic2 },
       { label: "Fear Crusher",  path: "/fear-crusher",  Icon: Swords },
       { label: "Comfort Zone",  path: "/comfort-zone",  Icon: Shield },
+      { label: "Patience Marker", path: "/patience-marker", Icon: Heart },
     ],
   },
   {
