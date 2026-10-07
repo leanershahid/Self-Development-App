@@ -15,6 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import Navbar from "./NavBar";
+import { syncAchievementRewards } from "../utils/syncAchievementRewards";
 
 const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
 const supabaseAnonKey =
@@ -71,7 +72,29 @@ export default function AchievementsPage() {
       };
     });
 
-    setAchievements(enrichedData);
+    const { data: linkedRewards } = await supabase
+      .from("rewards")
+      .select("id, reward_title, achievement_id, unlocked")
+      .not("achievement_id", "is", null);
+
+    const unlockedNow = await syncAchievementRewards(supabase);
+    if (unlockedNow.length > 0) {
+      alert(
+        `Reward unlocked: ${unlockedNow.map((r) => r.reward_title).join(", ")}`
+      );
+    }
+    const unlockedIds = new Set(unlockedNow.map((r) => r.id));
+    const rewardsByAchievement = (linkedRewards || []).reduce((acc, r) => {
+      (acc[r.achievement_id] ||= []).push({
+        ...r,
+        unlocked: r.unlocked || unlockedIds.has(r.id),
+      });
+      return acc;
+    }, {});
+
+    setAchievements(
+      enrichedData.map((a) => ({ ...a, rewards: rewardsByAchievement[a.id] || [] }))
+    );
     setLoading(false);
   }
 
@@ -701,6 +724,26 @@ export default function AchievementsPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Linked Rewards */}
+                    {achievement.rewards?.length > 0 && (
+                      <div className="bg-amber-900/10 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-amber-500/20 space-y-1.5">
+                        <div className="text-[10px] uppercase font-mono tracking-widest text-amber-500">
+                          Reward
+                        </div>
+                        {achievement.rewards.map((r) => (
+                          <div
+                            key={r.id}
+                            className={`flex items-center justify-between gap-2 text-xs ${r.unlocked ? "text-emerald-400" : "text-gray-500"}`}
+                          >
+                            <span className="truncate">{r.reward_title}</span>
+                            <span className="font-mono text-[10px] uppercase tracking-widest shrink-0">
+                              {r.unlocked ? "Unlocked" : "🔒 Locked"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Timeline */}
                     {achievement.start_date && achievement.target_date && (
