@@ -9,6 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function RewardsDashboard() {
   const [rewards, setRewards] = useState([]);
+  const [achievements, setAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
@@ -16,6 +17,7 @@ export default function RewardsDashboard() {
   const [newReward, setNewReward] = useState({
     reward_type: 'weekly',
     week_count: '',
+    achievement_id: '',
     reward_title: '',
     reward_description: '',
     image_url: ''
@@ -23,6 +25,7 @@ export default function RewardsDashboard() {
 
   useEffect(() => {
     loadRewards();
+    loadAchievements();
   }, []);
 
   const loadRewards = async () => {
@@ -41,6 +44,20 @@ export default function RewardsDashboard() {
     setLoading(false);
   };
 
+  const loadAchievements = async () => {
+    try {
+      const { data } = await supabase
+        .from('achievements')
+        .select('id, title')
+        .order('title', { ascending: true });
+      setAchievements(data || []);
+    } catch (error) {
+      console.error("Error loading achievements:", error);
+    }
+  };
+
+  const achievementTitle = (id) => achievements.find((a) => a.id === id)?.title || 'Deleted achievement';
+
   const handleImageChange = (e) => {
     const url = e.target.value;
     setNewReward({ ...newReward, image_url: url });
@@ -58,6 +75,11 @@ export default function RewardsDashboard() {
       return;
     }
 
+    if (newReward.reward_type === 'achievement' && !newReward.achievement_id) {
+      alert('Please select which achievement unlocks this reward');
+      return;
+    }
+
     try {
       const rewardData = {
         reward_type: newReward.reward_type,
@@ -68,6 +90,10 @@ export default function RewardsDashboard() {
 
       if (newReward.reward_type === 'weekly') {
         rewardData.week_count = parseInt(newReward.week_count);
+      }
+
+      if (newReward.reward_type === 'achievement') {
+        rewardData.achievement_id = newReward.achievement_id;
       }
 
       const { data, error } = await supabase
@@ -82,6 +108,7 @@ export default function RewardsDashboard() {
       setNewReward({
         reward_type: 'weekly',
         week_count: '',
+        achievement_id: '',
         reward_title: '',
         reward_description: '',
         image_url: ''
@@ -216,6 +243,7 @@ export default function RewardsDashboard() {
 
   const weeklyRewards = rewards.filter(r => r.reward_type === 'weekly').sort((a, b) => a.week_count - b.week_count);
   const monthlyRewards = rewards.filter(r => r.reward_type === 'monthly');
+  const achievementRewards = rewards.filter(r => r.reward_type === 'achievement');
 
   return (
     <div className="animate-slideIn" style={{ animationDelay: '0.1s' }}>
@@ -296,6 +324,7 @@ export default function RewardsDashboard() {
                   setNewReward({
                     reward_type: 'weekly',
                     week_count: '',
+                    achievement_id: '',
                     reward_title: '',
                     reward_description: '',
                     image_url: ''
@@ -320,6 +349,7 @@ export default function RewardsDashboard() {
                   >
                     <option value="weekly" className="bg-gray-900 text-gray-300">Weekly Cycle</option>
                     <option value="monthly" className="bg-gray-900 text-gray-300">Monthly Phase</option>
+                    <option value="achievement" className="bg-gray-900 text-gray-300">Achievement-Linked</option>
                   </select>
                 </div>
 
@@ -334,6 +364,26 @@ export default function RewardsDashboard() {
                       placeholder="e.g. 1, 2, 4..."
                       className="w-full dash-input px-4 py-3 rounded-xl placeholder-gray-600"
                     />
+                  </div>
+                )}
+
+                {newReward.reward_type === 'achievement' && (
+                  <div>
+                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Unlocks When Achievement Completes</label>
+                    <select
+                      value={newReward.achievement_id}
+                      onChange={(e) => setNewReward({ ...newReward, achievement_id: e.target.value })}
+                      className="w-full dash-input px-4 py-3 rounded-xl appearance-none"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.5em 1.5em' }}
+                    >
+                      <option value="" className="bg-gray-900 text-gray-300">Select an achievement...</option>
+                      {achievements.map((a) => (
+                        <option key={a.id} value={a.id} className="bg-gray-900 text-gray-300">{a.title}</option>
+                      ))}
+                    </select>
+                    {achievements.length === 0 && (
+                      <p className="text-[10px] font-mono text-gray-600 mt-2">No achievements found — create one on the Achievements page first.</p>
+                    )}
                   </div>
                 )}
 
@@ -565,6 +615,95 @@ export default function RewardsDashboard() {
                       ) : (
                         <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-mono tracking-widest uppercase">
                           <span>🔒 Encrypted</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Achievement-Linked Rewards Section */}
+        {achievementRewards.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-200 mb-6 flex items-center gap-3">
+              <Gift className="text-emerald-400" size={28} />
+              Achievement Rewards
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {achievementRewards.map((reward) => (
+                <div
+                  key={reward.id}
+                  className={`dash-glass rounded-2xl p-5 transition-all duration-300 group relative ${reward.unlocked
+                    ? 'border-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] shadow-[0_0_10px_rgba(16,185,129,0.1)]'
+                    : 'border-white/5 hover:border-white/10 opacity-60 saturate-50 hover:opacity-80'
+                    }`}
+                >
+                  <button
+                    onClick={() => deleteReward(reward.id)}
+                    className="absolute top-3 right-3 p-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-colors z-10 opacity-0 group-hover:opacity-100"
+                    title="Delete reward"
+                  >
+                    <Trash2 className="text-rose-400" size={16} />
+                  </button>
+
+                  <div className="flex flex-col h-full">
+                    {reward.image_url && (
+                      <div
+                        className="mb-4 rounded-xl overflow-hidden cursor-pointer h-32 relative group/img -mx-1"
+                        onClick={() => setSelectedImage(reward.image_url)}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent z-10 opacity-50 group-hover/img:opacity-20 transition-opacity"></div>
+                        <img
+                          src={reward.image_url}
+                          alt={reward.reward_title}
+                          className={`w-full h-full object-cover transition-all duration-500 hover:scale-110 ${!reward.unlocked ? 'grayscale' : ''}`}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className={`p-2.5 rounded-xl border border-white/10 ${reward.unlocked
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                        : 'bg-gradient-to-br from-gray-700 to-gray-800 text-gray-500'
+                        }`}>
+                        <Gift size={28} />
+                      </div>
+                      <div className="flex-1 mt-0.5">
+                        <h4 className={`text-sm font-bold truncate ${reward.unlocked ? 'text-gray-200' : 'text-gray-400'}`} title={reward.reward_title}>{reward.reward_title}</h4>
+                        <div className="mt-1">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono tracking-wider uppercase border ${reward.unlocked
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-gray-800 text-gray-500 border-gray-700'
+                            }`}>
+                            {achievementTitle(reward.achievement_id)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {reward.reward_description && (
+                      <p className="text-xs text-gray-500 mb-4 line-clamp-2 md:line-clamp-3 text-left font-light leading-relaxed flex-1">{reward.reward_description}</p>
+                    )}
+
+                    <div className="mt-auto pt-4 border-t border-white/5">
+                      {reward.unlocked ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-mono tracking-widest uppercase">
+                            <Sparkles size={12} />
+                            <span>Obtained</span>
+                          </div>
+                          {reward.unlocked_on && (
+                            <p className="text-[10px] text-gray-500 font-mono">
+                              {new Date(reward.unlocked_on).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-gray-500 text-[10px] font-mono tracking-widest uppercase">
+                          <span>🔒 Completes achievement to unlock</span>
                         </div>
                       )}
                     </div>

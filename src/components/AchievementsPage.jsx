@@ -13,6 +13,8 @@ import {
   TrendingDown,
   X,
   Check,
+  Gift,
+  Lock,
 } from "lucide-react";
 import Navbar from "./NavBar";
 
@@ -50,6 +52,7 @@ export default function AchievementsPage() {
 
     const ids = (data || []).map((a) => a.id);
     let logsByAchievement = {};
+    let rewardByAchievement = {};
     if (ids.length > 0) {
       const { data: logs, error: logsError } = await supabase
         .from("achievement_logs")
@@ -60,6 +63,16 @@ export default function AchievementsPage() {
         (acc[log.achievement_id] ||= []).push(log);
         return acc;
       }, {});
+
+      const { data: linkedRewards, error: rewardsError } = await supabase
+        .from("rewards")
+        .select("achievement_id, reward_title, unlocked")
+        .in("achievement_id", ids);
+      if (rewardsError) console.error("Error fetching linked rewards:", rewardsError);
+      rewardByAchievement = (linkedRewards || []).reduce((acc, r) => {
+        acc[r.achievement_id] = r;
+        return acc;
+      }, {});
     }
 
     const enrichedData = (data || []).map((achievement) => {
@@ -67,12 +80,43 @@ export default function AchievementsPage() {
       return {
         ...achievement,
         logs,
+        reward: rewardByAchievement[achievement.id] || null,
         ...calculateProgress(achievement, logs),
       };
     });
 
     setAchievements(enrichedData);
+
+    const completed = enrichedData.filter(
+      (a) => a.autoCurrentValue >= a.target_value
+    );
+    await syncRewardUnlocks(completed);
+
     setLoading(false);
+  }
+
+  // When an achievement's period completes (its logged progress reaches the
+  // target value), unlock any reward linked to it via rewards.achievement_id.
+  async function syncRewardUnlocks(completedAchievements) {
+    if (completedAchievements.length === 0) return;
+
+    const ids = completedAchievements.map((a) => a.id);
+    const { data: justUnlocked, error } = await supabase
+      .from("rewards")
+      .update({ unlocked: true, unlocked_on: new Date().toISOString() })
+      .in("achievement_id", ids)
+      .eq("unlocked", false)
+      .select("reward_title");
+
+    if (error) {
+      console.error("Error unlocking linked rewards:", error);
+      return;
+    }
+
+    if (justUnlocked && justUnlocked.length > 0) {
+      const names = justUnlocked.map((r) => r.reward_title).join(", ");
+      alert(`🎁 Reward unlocked: ${names}`);
+    }
   }
 
   async function markDay(achievementId, done) {
@@ -701,6 +745,21 @@ export default function AchievementsPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Linked Reward */}
+                    {achievement.reward && (
+                      <div
+                        className={`flex items-center gap-2 rounded-lg sm:rounded-xl p-2.5 sm:p-3 border text-[10px] font-mono uppercase tracking-widest ${
+                          achievement.reward.unlocked
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                            : "bg-gray-900/40 border-white/10 text-gray-500"
+                        }`}
+                      >
+                        {achievement.reward.unlocked ? <Gift size={13} /> : <Lock size={13} />}
+                        <span className="truncate flex-1">{achievement.reward.reward_title}</span>
+                        <span>{achievement.reward.unlocked ? "Unlocked" : "Locked"}</span>
+                      </div>
+                    )}
 
                     {/* Timeline */}
                     {achievement.start_date && achievement.target_date && (
