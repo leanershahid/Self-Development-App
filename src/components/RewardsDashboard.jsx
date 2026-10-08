@@ -15,6 +15,7 @@ export default function RewardsDashboard() {
   const [imagePreview, setImagePreview] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [achievements, setAchievements] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const [newReward, setNewReward] = useState({
     reward_type: 'weekly',
     week_count: '',
@@ -54,6 +55,38 @@ export default function RewardsDashboard() {
     const url = e.target.value;
     setNewReward({ ...newReward, image_url: url });
     setImagePreview(url);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please choose an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be 5MB or smaller');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage
+        .from('reward-images')
+        .upload(path, file, { contentType: file.type });
+      if (error) throw error;
+
+      const { data } = supabase.storage.from('reward-images').getPublicUrl(path);
+      setNewReward((prev) => ({ ...prev, image_url: data.publicUrl }));
+      setImagePreview(data.publicUrl);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert('Failed to upload image: ' + error.message);
+    }
+    setUploading(false);
   };
 
   const addReward = async () => {
@@ -401,7 +434,16 @@ export default function RewardsDashboard() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Thumbnail URI (Optional)</label>
+                  <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Upload Image (Optional)</label>
+                  <label className={`w-full dash-input px-4 py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-sm ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                    <FileImage size={16} />
+                    {uploading ? 'Uploading...' : 'Choose image from device'}
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Or Thumbnail URI (Optional)</label>
                   <input
                     type="text"
                     value={newReward.image_url}
@@ -433,7 +475,8 @@ export default function RewardsDashboard() {
             <div className="flex gap-4 mt-8 pt-6 border-t border-white/5">
               <button
                 onClick={addReward}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-600 border border-emerald-500/50 text-white rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 text-xs font-semibold tracking-widest uppercase"
+                disabled={uploading}
+                className="disabled:opacity-50 flex-1px-6 py-3 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-600 border border-emerald-500/50 text-white rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 text-xs font-semibold tracking-widest uppercase"
               >
                 <Check size={18} />
                 Deploy Reward
