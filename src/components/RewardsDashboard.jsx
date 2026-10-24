@@ -36,6 +36,12 @@ export default function RewardsDashboard() {
   const loadRewards = async () => {
     setLoading(true);
     try {
+      await syncAchievementRewards(supabase);
+      const { data: achievementsList } = await supabase
+        .from('achievements')
+        .select('id, title');
+      setAchievements(achievementsList || []);
+
       const { data: rewardsList } = await supabase
         .from('rewards')
         .select('*')
@@ -82,6 +88,38 @@ export default function RewardsDashboard() {
     setImagePreview(url);
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please choose an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be 5MB or smaller');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage
+        .from('reward-images')
+        .upload(path, file, { contentType: file.type });
+      if (error) throw error;
+
+      const { data } = supabase.storage.from('reward-images').getPublicUrl(path);
+      setNewReward((prev) => ({ ...prev, image_url: data.publicUrl }));
+      setImagePreview(data.publicUrl);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert('Failed to upload image: ' + error.message);
+    }
+    setUploading(false);
+  };
+
   const addReward = async () => {
     if (!newReward.reward_title.trim()) {
       toast.error('Please enter a reward title');
@@ -95,6 +133,11 @@ export default function RewardsDashboard() {
 
     if (newReward.reward_type === 'achievement' && !newReward.achievement_id) {
       toast.error('Please select which achievement unlocks this reward');
+      return;
+    }
+
+    if (newReward.reward_type === 'achievement' && !newReward.achievement_id) {
+      alert('Please select an achievement to link');
       return;
     }
 

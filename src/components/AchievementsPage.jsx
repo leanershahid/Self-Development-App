@@ -32,6 +32,7 @@ import {
   useToast,
 } from "./ui";
 import AchievementCalendar from "./AchievementCalendar";
+import { syncAchievementRewards } from "../utils/syncAchievementRewards";
 
 const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
 const supabaseAnonKey =
@@ -104,36 +105,20 @@ export default function AchievementsPage() {
 
     setAchievements(enrichedData);
 
-    const completed = enrichedData.filter(
-      (a) => a.autoCurrentValue >= a.target_value
-    );
-    await syncRewardUnlocks(completed);
+    const unlockedNow = await syncAchievementRewards(supabase);
+    if (unlockedNow.length > 0) {
+      const unlockedAchievementIds = new Set(unlockedNow.map((r) => r.achievement_id));
+      toast.success(`Reward unlocked: ${unlockedNow.map((r) => r.reward_title).join(", ")}`);
+      setAchievements((prev) =>
+        prev.map((a) =>
+          unlockedAchievementIds.has(a.id) && a.reward
+            ? { ...a, reward: { ...a.reward, unlocked: true } }
+            : a
+        )
+      );
+    }
 
     setLoading(false);
-  }
-
-  // When an achievement's period completes (its logged progress reaches the
-  // target value), unlock any reward linked to it via rewards.achievement_id.
-  async function syncRewardUnlocks(completedAchievements) {
-    if (completedAchievements.length === 0) return;
-
-    const ids = completedAchievements.map((a) => a.id);
-    const { data: justUnlocked, error } = await supabase
-      .from("rewards")
-      .update({ unlocked: true, unlocked_on: new Date().toISOString() })
-      .in("achievement_id", ids)
-      .eq("unlocked", false)
-      .select("reward_title");
-
-    if (error) {
-      console.error("Error unlocking linked rewards:", error);
-      return;
-    }
-
-    if (justUnlocked && justUnlocked.length > 0) {
-      const names = justUnlocked.map((r) => r.reward_title).join(", ");
-      toast.success(`Reward unlocked: ${names}`);
-    }
   }
 
   async function markDay(achievementId, done, dateStr = todayStr) {
