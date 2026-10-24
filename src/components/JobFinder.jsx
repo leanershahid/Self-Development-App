@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '../supabase';
-import Navbar from './NavBar';
 import CloudinaryUpload from './CloudinaryUpload';
 import { showLocalNotification } from '../utils/pushNotifications';
-import { Search, Briefcase, MapPin, DollarSign, ExternalLink, Plus, X, Check, Trash2, Edit2, ChevronDown, Loader2, Sparkles, Bell, FileText, User, Upload, Zap } from 'lucide-react';
+import { Search, Briefcase, MapPin, DollarSign, ExternalLink, Plus, Check, Trash2, Edit2, ChevronDown, Loader2, Sparkles, Bell, FileText, User, Upload, Zap } from 'lucide-react';
+import {
+  Button, IconButton, Input, Textarea, Select, Card, CardHeader, CardBody, Badge,
+  KpiCard, Table, Modal, ConfirmDialog, Tabs, EmptyState, useToast,
+} from './ui';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -24,14 +27,12 @@ const sendPushNotification = async (title, body) => {
   } catch (e) { console.error('Push error:', e.message); }
 };
 
-const GLASS = { background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' };
-
-const STATUS_COLORS = {
-  saved:      { bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.4)',  text: '#818cf8', label: 'Saved' },
-  applied:    { bg: 'rgba(34,211,238,0.15)',  border: 'rgba(34,211,238,0.4)',  text: '#22d3ee', label: 'Applied' },
-  interview:  { bg: 'rgba(250,204,21,0.15)',  border: 'rgba(250,204,21,0.4)',  text: '#facc15', label: 'Interview' },
-  offer:      { bg: 'rgba(74,222,128,0.15)',  border: 'rgba(74,222,128,0.4)',  text: '#4ade80', label: 'Offer' },
-  rejected:   { bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.4)', text: '#f87171', label: 'Rejected' },
+const STATUS_META = {
+  saved:      { label: 'Saved', variant: 'primary' },
+  applied:    { label: 'Applied', variant: 'info' },
+  interview:  { label: 'Interview', variant: 'warning' },
+  offer:      { label: 'Offer', variant: 'success' },
+  rejected:   { label: 'Rejected', variant: 'danger' },
 };
 
 async function callGroq(prompt) {
@@ -45,6 +46,7 @@ async function callGroq(prompt) {
 }
 
 export default function JobFinder() {
+  const toast = useToast();
   const [tab, setTab] = useState('search');
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -62,6 +64,7 @@ export default function JobFinder() {
   const [autoApplyingAll, setAutoApplyingAll] = useState(false);
   const [autoApplyProgress, setAutoApplyProgress] = useState({ current: 0, total: 0, currentJob: '' });
   const [useAiCoverLetter, setUseAiCoverLetter] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Profile state
   const [profile, setProfile] = useState(null);
@@ -96,7 +99,7 @@ export default function JobFinder() {
       }
       setProfileForm(prev => ({ ...prev, resume_text: text.slice(0, 3000) }));
     } catch (e) {
-      alert('Failed to extract PDF text: ' + e.message);
+      toast.error('Failed to extract PDF text: ' + e.message);
     }
     setExtractingPdf(false);
   };
@@ -110,9 +113,9 @@ export default function JobFinder() {
         await supabase.from('user_profile').insert({ ...profileForm, resume_url: resumeUrl });
       }
       await loadProfile();
-      alert('Profile saved!');
+      toast.success('Profile saved!');
     } catch (e) {
-      alert('Failed to save: ' + e.message);
+      toast.error('Failed to save: ' + e.message);
     }
     setSavingProfile(false);
   };
@@ -140,7 +143,7 @@ export default function JobFinder() {
       });
       setJobs(unique);
     } catch (e) {
-      alert('Search failed: ' + e.message);
+      toast.error('Search failed: ' + e.message);
     }
     setSearching(false);
   };
@@ -163,7 +166,7 @@ Write a compelling, personalized cover letter in 3 paragraphs tailored to this s
       const cl = await callGroq(prompt);
       setCoverLetter(cl);
     } catch (e) {
-      alert('Failed to generate cover letter: ' + e.message);
+      toast.error('Failed to generate cover letter: ' + e.message);
     }
     setGeneratingCL(false);
   };
@@ -183,7 +186,7 @@ ${profile?.full_name ? `My Name: ${profile.full_name}` : ''}
 Write a compelling 3-paragraph cover letter.`;
         cl = await callGroq(prompt);
         setCoverLetter(cl);
-      } catch (e) { cl = profile?.base_cover_letter || ''; }
+      } catch { cl = profile?.base_cover_letter || ''; }
       setGeneratingCL(false);
     }
     // Copy cover letter to clipboard
@@ -194,7 +197,7 @@ Write a compelling 3-paragraph cover letter.`;
     const url = job.job_apply_link || job.job_google_link;
     if (url) window.open(url, '_blank');
     showLocalNotification('🚀 Applying to ' + job.job_title, `at ${job.employer_name} — cover letter copied, paste & submit!`);
-    alert('✅ Cover letter copied to clipboard!\n\nJob site opened — paste your cover letter and submit.');
+    toast.success('Cover letter copied to clipboard! Job site opened — paste your cover letter and submit.');
   };
 
   const saveJob = async (job, cl = coverLetter) => {
@@ -214,7 +217,7 @@ Write a compelling 3-paragraph cover letter.`;
       await loadApplications();
       showLocalNotification('💼 Job Saved!', `${job.job_title} at ${job.employer_name} added to tracker`);
     } catch (e) {
-      alert('Failed to save: ' + e.message);
+      toast.error('Failed to save: ' + e.message);
     }
     setSavingJob(null);
   };
@@ -243,6 +246,13 @@ Write a compelling 3-paragraph cover letter.`;
     await loadApplications();
   };
 
+  const confirmDeleteApp = async () => {
+    if (!deleteTarget) return;
+    await deleteApp(deleteTarget.id);
+    setDeleteTarget(null);
+    toast.success('Application removed');
+  };
+
   const autoApplyAll = async () => {
     if (!jobs.length) return;
     setAutoApplyingAll(true);
@@ -258,7 +268,7 @@ Write a compelling 3-paragraph cover letter.`;
           try {
             const prompt = `Write a short professional cover letter for:\nJob: ${job.job_title} at ${job.employer_name}\nDescription: ${(job.job_description || '').slice(0, 500)}\n${profile?.full_name ? `Applicant: ${profile.full_name}` : ''}\n${profile?.resume_text ? `Skills: ${profile.resume_text.slice(0, 300)}` : ''}\n3 paragraphs only.`;
             cl = await callGroq(prompt);
-          } catch (groqErr) { cl = profile?.base_cover_letter || ''; }
+          } catch { cl = profile?.base_cover_letter || ''; }
         }
         const { error } = await supabase.from('job_applications').insert({
           job_title: job.job_title,
@@ -287,10 +297,12 @@ Write a compelling 3-paragraph cover letter.`;
       showLocalNotification('🚀 Auto Apply Complete!', `Saved ${successCount} jobs — check Applications tab!`);
       sendPushNotification('🚀 Auto Apply Complete!', `Successfully applied to ${successCount}/${jobs.length} jobs!`);
     }
-    const msg = `✅ Done! Saved ${successCount}/${jobs.length} jobs to Applications tab.${
-      errors.length ? `\n\n⚠️ ${errors.length} failed:\n${errors.slice(0, 3).join('\n')}` : ''
-    }`;
-    // alert(msg);
+    if (successCount > 0) {
+      toast.success(`Saved ${successCount}/${jobs.length} jobs to Applications tab.`);
+    }
+    if (errors.length) {
+      toast.error(`${errors.length} failed: ${errors.slice(0, 3).join('; ')}`);
+    }
   };
 
   const filteredApps = applications
@@ -304,73 +316,129 @@ Write a compelling 3-paragraph cover letter.`;
     offer: applications.filter(a => a.status === 'offer').length,
   };
 
+  const editingAppData = applications.find(a => a.id === editingApp) || null;
+
+  const appTableColumns = [
+    {
+      key: 'job_title',
+      header: 'Job',
+      sortable: true,
+      render: (a) => (
+        <div className="min-w-0">
+          <div className="font-medium text-[var(--text)] truncate">{a.job_title}</div>
+          <div className="text-xs text-primary truncate">{a.company}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'location',
+      header: 'Location',
+      render: (a) => a.location
+        ? <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] whitespace-nowrap"><MapPin size={11} />{a.location}</span>
+        : <span className="text-xs text-[var(--text-muted)]">—</span>,
+    },
+    {
+      key: 'salary',
+      header: 'Salary',
+      render: (a) => a.salary
+        ? <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] whitespace-nowrap"><DollarSign size={11} />{a.salary}</span>
+        : <span className="text-xs text-[var(--text-muted)]">—</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      render: (a) => (
+        <div className="flex items-center gap-2">
+          <Badge variant={STATUS_META[a.status]?.variant || 'neutral'}>{STATUS_META[a.status]?.label || a.status}</Badge>
+          <Select value={a.status} onChange={e => updateStatus(a.id, e.target.value)} className="!h-8 max-w-[140px] text-xs" onClick={e => e.stopPropagation()}>
+            {Object.entries(STATUS_META).map(([s, meta]) => (
+              <option key={s} value={s}>{meta.label}</option>
+            ))}
+          </Select>
+        </div>
+      ),
+    },
+    {
+      key: 'applied_at',
+      header: 'Applied',
+      sortable: true,
+      render: (a) => a.applied_at
+        ? <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] whitespace-nowrap"><Bell size={11} />{a.applied_at}</span>
+        : <span className="text-xs text-[var(--text-muted)]">—</span>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (a) => (
+        <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+          {a.job_url && (
+            <IconButton variant="accent" size="sm" label="Open job listing" onClick={() => window.open(a.job_url, '_blank', 'noreferrer')}>
+              <ExternalLink size={13} />
+            </IconButton>
+          )}
+          <IconButton variant="primary" size="sm" label="Edit notes" onClick={() => { setEditingApp(a.id); setNotes(a.notes || ''); }}>
+            <Edit2 size={13} />
+          </IconButton>
+          <IconButton variant="danger" size="sm" label="Delete application" onClick={() => setDeleteTarget(a)}>
+            <Trash2 size={13} />
+          </IconButton>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200">
-      <Navbar />
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-5%] w-[35%] h-[35%] rounded-full bg-indigo-900/20 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-cyan-900/20 blur-[120px]" />
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+      {/* Header */}
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-primary/10 text-primary">
+          <Briefcase size={28} />
+        </div>
+        <h1 className="text-2xl font-bold text-[var(--text)]">Job Finder</h1>
+        <p className="text-sm text-[var(--text-muted)]">Search · AI Cover Letter · Track</p>
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-4 py-8">
-
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl mb-4 border border-indigo-500/30" style={{ ...GLASS, boxShadow: '0 0 24px rgba(99,102,241,0.2)' }}>
-            <Briefcase size={32} className="text-indigo-400" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-indigo-500 mb-2">JOB FINDER</h1>
-          <p className="text-indigo-400/50 font-mono text-xs tracking-[0.3em] uppercase">Search · AI Cover Letter · Track</p>
+      {/* Stats */}
+      {applications.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <KpiCard icon={<Briefcase size={18} />} label="Saved" value={stats.total} tone="primary" />
+          <KpiCard icon={<Bell size={18} />} label="Applied" value={stats.applied} tone="primary" />
+          <KpiCard icon={<Sparkles size={18} />} label="Interview" value={stats.interview} tone="warning" />
+          <KpiCard icon={<Check size={18} />} label="Offer" value={stats.offer} tone="accent" />
         </div>
+      )}
 
-        {/* Stats */}
-        {applications.length > 0 && (
-          <div className="grid grid-cols-4 gap-3 mb-6">
-            {[
-              { label: 'Saved', value: stats.total, color: '#818cf8' },
-              { label: 'Applied', value: stats.applied, color: '#22d3ee' },
-              { label: 'Interview', value: stats.interview, color: '#facc15' },
-              { label: 'Offer', value: stats.offer, color: '#4ade80' },
-            ].map((s, i) => (
-              <div key={i} className="rounded-2xl p-3 text-center" style={GLASS}>
-                <div className="text-xl font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
-                <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Tabs */}
+      <Tabs
+        tabs={[
+          { value: 'profile', label: 'My Profile' },
+          { value: 'search', label: 'Search Jobs' },
+          { value: 'tracker', label: 'Applications' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
-        {/* Tabs */}
-        <div className="flex gap-2 rounded-2xl p-1.5 mb-6" style={GLASS}>
-          {[{ id: 'profile', label: 'My Profile', icon: User }, { id: 'search', label: 'Search Jobs', icon: Search }, { id: 'tracker', label: 'Applications', icon: Briefcase }].map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => setTab(id)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-widest transition-all"
-              style={tab === id
-                ? { background: 'rgba(99,102,241,0.2)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.4)' }
-                : { color: '#475569', border: '1px solid transparent' }}>
-              <Icon size={15} /><span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Profile Tab */}
-        {tab === 'profile' && (
-          <div className="space-y-4">
-            <div className="rounded-2xl p-5" style={GLASS}>
-              <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2"><User size={14} />Personal Info</h3>
+      {/* Profile Tab */}
+      {tab === 'profile' && (
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader title="Personal Info" icon={<User size={16} />} />
+            <CardBody>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[{ key: 'full_name', placeholder: 'Full Name' }, { key: 'email', placeholder: 'Email' }, { key: 'phone', placeholder: 'Phone' }, { key: 'job_title', placeholder: 'Target Job Title' }, { key: 'location', placeholder: 'Preferred Location' }].map(({ key, placeholder }) => (
-                  <input key={key} value={profileForm[key] || ''} onChange={e => setProfileForm({ ...profileForm, [key]: e.target.value })}
-                    placeholder={placeholder}
-                    className="w-full px-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-                ))}
+                <Input value={profileForm.full_name || ''} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} placeholder="Full Name" />
+                <Input value={profileForm.email || ''} onChange={e => setProfileForm({ ...profileForm, email: e.target.value })} placeholder="Email" />
+                <Input value={profileForm.phone || ''} onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Phone" />
+                <Input value={profileForm.job_title || ''} onChange={e => setProfileForm({ ...profileForm, job_title: e.target.value })} placeholder="Target Job Title" />
+                <Input value={profileForm.location || ''} onChange={e => setProfileForm({ ...profileForm, location: e.target.value })} placeholder="Preferred Location" />
               </div>
-            </div>
+            </CardBody>
+          </Card>
 
-            <div className="rounded-2xl p-5" style={GLASS}>
-              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-2"><FileText size={14} />Resume (PDF)</h3>
-              <p className="text-xs text-slate-500 mb-3">Upload your PDF resume — text will be auto-extracted for AI</p>
+          <Card>
+            <CardHeader title="Resume (PDF)" icon={<FileText size={16} />} subtitle="Upload your PDF resume — text will be auto-extracted for AI" />
+            <CardBody>
               <div className="mb-3">
                 <input type="file" accept=".pdf" className="hidden" id="pdf-upload"
                   onChange={async (e) => {
@@ -391,350 +459,307 @@ Write a compelling 3-paragraph cover letter.`;
                   }} />
                 <label htmlFor="pdf-upload"
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed cursor-pointer transition-all text-sm"
-                  style={{ background: 'rgba(255,255,255,0.5)', borderColor: resumeUrl ? 'rgba(74,222,128,0.4)' : 'rgba(255,255,255,0.15)', color: resumeUrl ? '#4ade80' : '#64748b' }}>
-                  {extractingPdf ? <><Loader2 size={16} className="animate-spin" />Extracting text...</> : resumeUrl ? <><FileText size={16} />Resume uploaded ✓ — click to replace</> : <><Upload size={16} />Upload PDF Resume</>}
+                  style={{ borderColor: resumeUrl ? 'var(--accent, #10B981)' : 'var(--border)' }}>
+                  {extractingPdf ? (
+                    <span className="flex items-center gap-2 text-[var(--text-muted)]"><Loader2 size={16} className="animate-spin" />Extracting text...</span>
+                  ) : resumeUrl ? (
+                    <span className="flex items-center gap-2 text-accent"><FileText size={16} />Resume uploaded — click to replace</span>
+                  ) : (
+                    <span className="flex items-center gap-2 text-[var(--text-muted)]"><Upload size={16} />Upload PDF Resume</span>
+                  )}
                 </label>
               </div>
               {resumeUrl && (
-                <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 underline">View uploaded resume</a>
+                <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">View uploaded resume</a>
               )}
-              {extractingPdf && <p className="text-xs text-amber-400 mt-2">⏳ Extracting text from PDF...</p>}
-              <p className="text-xs text-slate-600 mt-2">Or paste manually below:</p>
-              <textarea value={profileForm.resume_text || ''} onChange={e => setProfileForm({ ...profileForm, resume_text: e.target.value })}
+              <p className="text-xs text-[var(--text-muted)] mt-2">Or paste manually below:</p>
+              <Textarea
+                value={profileForm.resume_text || ''}
+                onChange={e => setProfileForm({ ...profileForm, resume_text: e.target.value })}
                 placeholder="Resume text will appear here after PDF upload, or paste manually..."
-                rows={5} className="w-full mt-2 px-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none resize-none"
-                style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            </div>
+                rows={5}
+                autoResize={false}
+                className="mt-2"
+              />
+            </CardBody>
+          </Card>
 
-            <div className="rounded-2xl p-5" style={GLASS}>
-              <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Upload size={14} />Base Cover Letter</h3>
-              <p className="text-xs text-slate-500 mb-3">Paste your existing cover letter — AI will customize it for each job</p>
-              <textarea value={profileForm.base_cover_letter || ''} onChange={e => setProfileForm({ ...profileForm, base_cover_letter: e.target.value })}
+          <Card>
+            <CardHeader title="Base Cover Letter" icon={<Upload size={16} />} subtitle="Paste your existing cover letter — AI will customize it for each job" />
+            <CardBody>
+              <Textarea
+                value={profileForm.base_cover_letter || ''}
+                onChange={e => setProfileForm({ ...profileForm, base_cover_letter: e.target.value })}
                 placeholder="Paste your base cover letter here..."
-                rows={8} className="w-full px-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none resize-none"
-                style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            </div>
+                rows={8}
+                autoResize={false}
+              />
+            </CardBody>
+          </Card>
 
-            <button onClick={saveProfile} disabled={savingProfile}
-              className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#818cf8' }}>
-              {savingProfile ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-              {savingProfile ? 'Saving...' : 'Save Profile'}
-            </button>
-          </div>
-        )}
+          <Button variant="primary" size="lg" className="w-full" loading={savingProfile} onClick={saveProfile}>
+            {savingProfile ? 'Saving...' : 'Save Profile'}
+          </Button>
+        </div>
+      )}
 
-        {/* Search Tab */}
-        {tab === 'search' && (
-          <div>
-            {/* Profile Warning */}
-            {!profile && (
-              <div className="rounded-2xl p-4 mb-4 flex items-center gap-3 cursor-pointer" onClick={() => setTab('profile')}
-                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
-                <User size={16} className="text-amber-400 shrink-0" />
-                <p className="text-xs text-amber-400">Set up your profile with resume + cover letter for better AI results. <span className="underline">Click here →</span></p>
-              </div>
-            )}
+      {/* Search Tab */}
+      {tab === 'search' && (
+        <div className="flex flex-col gap-4">
+          {/* Profile Warning */}
+          {!profile && (
+            <Card as="button" onClick={() => setTab('profile')} className="text-left p-4 flex items-center gap-3 border-warning/30 bg-warning/5">
+              <User size={16} className="text-warning shrink-0" />
+              <p className="text-xs text-warning">Set up your profile with resume + cover letter for better AI results. <span className="underline">Click here →</span></p>
+            </Card>
+          )}
 
-            {/* Search Bar */}
-            <div className="rounded-2xl p-4 mb-6" style={GLASS}>
+          {/* Search Bar */}
+          <Card>
+            <CardBody>
               <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1 relative">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchJobs()}
-                    placeholder="Job title, role, skills..."
-                    className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-                </div>
-                <div className="relative">
-                  <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input value={location} onChange={e => setLocation(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchJobs()}
-                    placeholder="Location (optional)"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-                </div>
-                <button onClick={searchJobs} disabled={searching || !query.trim()}
-                  className="px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-2"
-                  style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', color: '#818cf8' }}>
-                  {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                <Input
+                  className="flex-1"
+                  leadingIcon={<Search size={16} />}
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && searchJobs()}
+                  placeholder="Job title, role, skills..."
+                />
+                <Input
+                  leadingIcon={<MapPin size={16} />}
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && searchJobs()}
+                  placeholder="Location (optional)"
+                />
+                <Button variant="primary" icon={<Search size={16} />} loading={searching} disabled={!query.trim()} onClick={searchJobs}>
                   {searching ? 'Searching...' : 'Search'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </CardBody>
+          </Card>
 
-            {/* Auto Apply All Button */}
-            {jobs.length > 0 && (
-              <div className="mb-4 rounded-2xl p-4" style={GLASS}>
+          {/* Auto Apply All */}
+          {jobs.length > 0 && (
+            <Card>
+              <CardBody>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-slate-200">{jobs.length} jobs found</p>
-                  <button onClick={autoApplyAll} disabled={autoApplyingAll}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
-                    {autoApplyingAll ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                  <p className="text-sm font-semibold text-[var(--text)]">{jobs.length} jobs found</p>
+                  <Button variant="success" size="sm" icon={<Zap size={14} />} loading={autoApplyingAll} onClick={autoApplyAll}>
                     {autoApplyingAll ? `Applying ${autoApplyProgress.current}/${autoApplyProgress.total}` : 'Auto Apply All'}
-                  </button>
+                  </Button>
                 </div>
                 {/* Cover Letter Mode Toggle */}
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
-                  <span className="text-xs text-slate-500 font-mono uppercase tracking-widest">Cover Letter:</span>
-                  <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+                  <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Cover Letter:</span>
+                  <div className="flex rounded-lg overflow-hidden border border-[var(--border)]">
                     <button onClick={() => setUseAiCoverLetter(false)}
-                      className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition-all"
-                      style={!useAiCoverLetter
-                        ? { background: 'rgba(99,102,241,0.25)', color: '#818cf8' }
-                        : { background: 'transparent', color: '#475569' }}>
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${!useAiCoverLetter ? 'bg-primary/10 text-primary' : 'text-[var(--text-muted)]'}`}>
                       Base
                     </button>
                     <button onClick={() => setUseAiCoverLetter(true)}
-                      className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1"
-                      style={useAiCoverLetter
-                        ? { background: 'rgba(245,158,11,0.2)', color: '#f59e0b' }
-                        : { background: 'transparent', color: '#475569' }}>
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1 ${useAiCoverLetter ? 'bg-warning/10 text-warning' : 'text-[var(--text-muted)]'}`}>
                       <Sparkles size={11} />AI Generated
                     </button>
                   </div>
-                  <span className="text-[10px] text-slate-600">
+                  <span className="text-[11px] text-[var(--text-muted)]">
                     {useAiCoverLetter ? 'Unique AI letter per job (slower)' : 'Your base cover letter (faster)'}
                   </span>
                 </div>
-              </div>
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Job Results */}
+          <div className="flex flex-col gap-4">
+            {jobs.map(job => (
+              <Card key={job.job_id}>
+                <CardBody>
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {job.employer_logo && (
+                        <img src={job.employer_logo} alt={job.employer_name} className="w-10 h-10 rounded-xl object-contain bg-[var(--surface-hover)] p-1 shrink-0" onError={e => e.target.style.display = 'none'} />
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-[var(--text)] truncate">{job.job_title}</h3>
+                        <p className="text-sm text-primary">{job.employer_name}</p>
+                        <div className="flex flex-wrap items-center gap-3 mt-1">
+                          {(job.job_city || job.job_country) && (
+                            <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]"><MapPin size={11} />{job.job_city}{job.job_city && job.job_country ? ', ' : ''}{job.job_country}</span>
+                          )}
+                          {job.job_min_salary && (
+                            <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]"><DollarSign size={11} />{job.job_min_salary} - {job.job_max_salary} {job.job_salary_currency}</span>
+                          )}
+                          {job.job_employment_type && (
+                            <Badge variant="primary">{job.job_employment_type}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {job.job_apply_link && (
+                        <IconButton variant="accent" label="Open job listing" onClick={() => window.open(job.job_apply_link, '_blank', 'noreferrer')}>
+                          <ExternalLink size={15} />
+                        </IconButton>
+                      )}
+                      <IconButton
+                        variant="primary"
+                        label="Expand job"
+                        onClick={() => { setSelectedJob(selectedJob?.job_id === job.job_id ? null : job); setCoverLetter(''); }}
+                      >
+                        <ChevronDown size={15} style={{ transform: selectedJob?.job_id === job.job_id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </IconButton>
+                    </div>
+                  </div>
+
+                  {/* Expanded */}
+                  {selectedJob?.job_id === job.job_id && (
+                    <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-4 line-clamp-4">{job.job_description}</p>
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Button variant="success" size="sm" icon={<Zap size={13} />} loading={generatingCL} onClick={() => autoApply(job)}>
+                          {generatingCL ? 'Preparing...' : 'Auto Apply'}
+                        </Button>
+                        <Button variant="secondary" size="sm" icon={<Sparkles size={13} />} loading={generatingCL} onClick={() => generateCoverLetter(job)}>
+                          {generatingCL ? 'Generating...' : 'AI Cover Letter'}
+                        </Button>
+                        <Button variant="primary" size="sm" icon={<Plus size={13} />} loading={savingJob === job.job_id} onClick={() => saveJob(job)}>
+                          Save
+                        </Button>
+                      </div>
+
+                      {/* Cover Letter */}
+                      {coverLetter && (
+                        <div className="rounded-xl p-4 bg-warning/5 border border-warning/20">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-semibold text-warning uppercase tracking-wide flex items-center gap-2"><FileText size={12} />AI Cover Letter</span>
+                            <button onClick={() => { navigator.clipboard.writeText(coverLetter); }}
+                              className="text-xs text-warning/70 hover:text-warning transition-colors">Copy</button>
+                          </div>
+                          <p className="text-xs text-[var(--text)] leading-relaxed whitespace-pre-wrap">{coverLetter}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+            ))}
+
+            {!searching && jobs.length === 0 && query && (
+              <Card>
+                <EmptyState icon={<Briefcase size={20} />} title="No jobs found" message="Try different keywords." />
+              </Card>
             )}
 
-            {/* Job Results */}
-            <div className="space-y-4">
-              {jobs.map(job => (
-                <div key={job.job_id} className="rounded-2xl overflow-hidden" style={GLASS}>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        {job.employer_logo && (
-                          <img src={job.employer_logo} alt={job.employer_name} className="w-10 h-10 rounded-xl object-contain bg-white/5 p-1 shrink-0" onError={e => e.target.style.display = 'none'} />
-                        )}
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-slate-200 truncate">{job.job_title}</h3>
-                          <p className="text-sm text-indigo-400">{job.employer_name}</p>
-                          <div className="flex flex-wrap items-center gap-3 mt-1">
-                            {(job.job_city || job.job_country) && (
-                              <span className="flex items-center gap-1 text-xs text-slate-500"><MapPin size={11} />{job.job_city}{job.job_city && job.job_country ? ', ' : ''}{job.job_country}</span>
-                            )}
-                            {job.job_min_salary && (
-                              <span className="flex items-center gap-1 text-xs text-slate-500"><DollarSign size={11} />{job.job_min_salary} - {job.job_max_salary} {job.job_salary_currency}</span>
-                            )}
-                            {job.job_employment_type && (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-mono" style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#818cf8' }}>{job.job_employment_type}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        {job.job_apply_link && (
-                          <a href={job.job_apply_link} target="_blank" rel="noreferrer"
-                            className="p-2 rounded-xl transition-all" style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }}>
-                            <ExternalLink size={15} />
-                          </a>
-                        )}
-                        <button onClick={() => { setSelectedJob(selectedJob?.job_id === job.job_id ? null : job); setCoverLetter(''); }}
-                          className="p-2 rounded-xl transition-all" style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8' }}>
-                          <ChevronDown size={15} style={{ transform: selectedJob?.job_id === job.job_id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Expanded */}
-                    {selectedJob?.job_id === job.job_id && (
-                      <div className="mt-4 pt-4 border-t border-white/5">
-                        <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-4">{job.job_description}</p>
-
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          <button onClick={() => autoApply(job)} disabled={generatingCL}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
-                            style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }}>
-                            {generatingCL ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
-                            {generatingCL ? 'Preparing...' : 'Auto Apply'}
-                          </button>
-                          <button onClick={() => generateCoverLetter(job)} disabled={generatingCL}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
-                            style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
-                            {generatingCL ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                            {generatingCL ? 'Generating...' : 'AI Cover Letter'}
-                          </button>
-                          <button onClick={() => saveJob(job)} disabled={savingJob === job.job_id}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
-                            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8' }}>
-                            {savingJob === job.job_id ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                            Save
-                          </button>
-                        </div>
-
-                        {/* Cover Letter */}
-                        {coverLetter && (
-                          <div className="rounded-xl p-4" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2"><FileText size={12} />AI Cover Letter</span>
-                              <button onClick={() => { navigator.clipboard.writeText(coverLetter); }}
-                                className="text-xs text-amber-400/60 hover:text-amber-400 transition-colors">Copy</button>
-                            </div>
-                            <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{coverLetter}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {!searching && jobs.length === 0 && query && (
-                <div className="text-center py-16 rounded-2xl" style={GLASS}>
-                  <Briefcase className="text-slate-700 mx-auto mb-3" size={40} />
-                  <p className="text-slate-500 font-mono text-sm">No jobs found. Try different keywords.</p>
-                </div>
-              )}
-
-              {!searching && jobs.length === 0 && !query && (
-                <div className="text-center py-16 rounded-2xl" style={GLASS}>
-                  <Search className="text-slate-700 mx-auto mb-3" size={40} />
-                  <p className="text-slate-500 font-mono text-sm">Search for jobs above to get started.</p>
-                </div>
-              )}
-            </div>
+            {!searching && jobs.length === 0 && !query && (
+              <Card>
+                <EmptyState icon={<Search size={20} />} title="Search for jobs" message="Search for jobs above to get started." />
+              </Card>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Auto Apply All Overlay */}
-        {autoApplyingAll && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(12px)' }}>
-            <div className="rounded-3xl p-8 text-center max-w-sm w-full mx-4" style={GLASS}>
-              <div className="relative w-20 h-20 mx-auto mb-6">
-                <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(74,222,128,0.2)' }} />
-                <div className="absolute inset-2 rounded-full animate-pulse" style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)' }} />
-                <div className="absolute inset-0 flex items-center justify-center text-3xl">🚀</div>
-              </div>
-              <h2 className="text-xl font-black text-[#3D52A0] mb-1">Auto Applying...</h2>
-              <p className="text-[10px] font-mono mb-1" style={{ color: useAiCoverLetter ? '#f59e0b' : '#818cf8' }}>
-                {useAiCoverLetter ? '✨ AI Cover Letter per job' : '📄 Base Cover Letter'}
-              </p>
-              <p className="text-xs text-slate-400 mb-1 truncate px-4">{autoApplyProgress.currentJob}</p>
-              <p className="text-emerald-400 font-mono text-sm mb-5">{autoApplyProgress.current} / {autoApplyProgress.total}</p>
-              <div className="w-full rounded-full overflow-hidden mb-2" style={{ height: 6, background: 'rgba(255,255,255,0.06)' }}>
-                <div className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${(autoApplyProgress.current / autoApplyProgress.total) * 100}%`, background: 'linear-gradient(90deg, #4ade80, #22d3ee)' }} />
-              </div>
-              <p className="text-[10px] text-slate-600 font-mono">{Math.round((autoApplyProgress.current / autoApplyProgress.total) * 100)}% complete</p>
-            </div>
+      {/* Auto Apply All Overlay */}
+      <Modal open={autoApplyingAll} onClose={() => {}} title="Auto Applying...">
+        <div className="text-center py-2">
+          <div className="relative w-16 h-16 mx-auto mb-5">
+            <div className="absolute inset-0 rounded-full animate-ping bg-accent/20" />
+            <div className="absolute inset-2 rounded-full animate-pulse bg-accent/15 border border-accent/40" />
+            <div className="absolute inset-0 flex items-center justify-center text-2xl">🚀</div>
           </div>
-        )}
-
-        {/* Tracker Tab */}
-        {tab === 'tracker' && (
-          <div>
-            {/* Search + Filter */}
-            <div className="relative mb-4">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input value={appSearch} onChange={e => setAppSearch(e.target.value)}
-                placeholder="Search applications by title or company..."
-                className="w-full pl-9 pr-4 py-3 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none"
-                style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            </div>
-            <div className="flex gap-2 flex-wrap mb-6">
-              {['all', ...Object.keys(STATUS_COLORS)].map(s => (
-                <button key={s} onClick={() => setFilterStatus(s)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
-                  style={filterStatus === s
-                    ? { background: s === 'all' ? 'rgba(255,255,255,0.1)' : STATUS_COLORS[s].bg, border: `1px solid ${s === 'all' ? 'rgba(255,255,255,0.2)' : STATUS_COLORS[s].border}`, color: s === 'all' ? '#3D52A0' : STATUS_COLORS[s].text }
-                    : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#475569' }}>
-                  {s === 'all' ? 'All' : STATUS_COLORS[s].label}
-                </button>
-              ))}
-            </div>
-
-            {/* Applications */}
-            <div className="space-y-4">
-              {filteredApps.map(app => (
-                <div key={app.id} className="rounded-2xl p-5" style={GLASS}>
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-slate-200 truncate">{app.job_title}</h3>
-                      <p className="text-sm text-indigo-400">{app.company}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        {app.location && <span className="flex items-center gap-1 text-xs text-slate-500"><MapPin size={11} />{app.location}</span>}
-                        {app.salary && <span className="flex items-center gap-1 text-xs text-slate-500"><DollarSign size={11} />{app.salary}</span>}
-                        {app.applied_at && <span className="flex items-center gap-1 text-xs text-slate-500"><Bell size={11} />Applied {app.applied_at}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {app.job_url && (
-                        <a href={app.job_url} target="_blank" rel="noreferrer"
-                          className="p-2 rounded-xl" style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }}>
-                          <ExternalLink size={14} />
-                        </a>
-                      )}
-                      <button onClick={() => { setEditingApp(editingApp === app.id ? null : app.id); setNotes(app.notes || ''); }}
-                        className="p-2 rounded-xl" style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8' }}>
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => deleteApp(app.id)}
-                        className="p-2 rounded-xl" style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Status Buttons */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {Object.entries(STATUS_COLORS).map(([s, c]) => (
-                      <button key={s} onClick={() => updateStatus(app.id, s)}
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-1"
-                        style={app.status === s
-                          ? { background: c.bg, border: `1px solid ${c.border}`, color: c.text }
-                          : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#475569' }}>
-                        {app.status === s && <Check size={10} />}{c.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Cover Letter Preview */}
-                  {app.cover_letter && (
-                    <div className="mb-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                      <p className="text-[10px] font-mono text-amber-400/60 uppercase tracking-widest mb-1">Cover Letter</p>
-                      <p className="text-xs text-slate-400 line-clamp-2">{app.cover_letter}</p>
-                    </div>
-                  )}
-
-                  {/* Notes */}
-                  {editingApp === app.id && (
-                    <div className="mt-3 pt-3 border-t border-white/5">
-                      <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-                        placeholder="Add notes about this application..."
-                        className="w-full px-3 py-2 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none resize-none"
-                        style={{ background: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }} />
-                      <div className="flex gap-2 mt-2">
-                        <button onClick={() => updateNotes(app.id)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
-                          style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }}>
-                          <Check size={12} />Save
-                        </button>
-                        <button onClick={() => setEditingApp(null)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
-                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#475569' }}>
-                          <X size={12} />Cancel
-                        </button>
-                      </div>
-                      {app.notes && <p className="text-xs text-slate-500 mt-2">{app.notes}</p>}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {filteredApps.length === 0 && (
-                <div className="text-center py-16 rounded-2xl" style={GLASS}>
-                  <Briefcase className="text-slate-700 mx-auto mb-3" size={40} />
-                  <p className="text-slate-500 font-mono text-sm">No applications yet. Search and save jobs!</p>
-                </div>
-              )}
-            </div>
+          <p className="text-xs font-medium mb-1" style={{ color: useAiCoverLetter ? 'var(--warning, #f59e0b)' : 'var(--primary, #1E3A5F)' }}>
+            {useAiCoverLetter ? '✨ AI Cover Letter per job' : '📄 Base Cover Letter'}
+          </p>
+          <p className="text-xs text-[var(--text-muted)] mb-1 truncate px-4">{autoApplyProgress.currentJob}</p>
+          <p className="text-accent font-semibold text-sm mb-4">{autoApplyProgress.current} / {autoApplyProgress.total}</p>
+          <div className="w-full h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden mb-2">
+            <div className="h-full rounded-full bg-accent transition-all duration-500"
+              style={{ width: `${(autoApplyProgress.current / autoApplyProgress.total) * 100}%` }} />
           </div>
-        )}
-      </div>
+          <p className="text-[11px] text-[var(--text-muted)]">{Math.round((autoApplyProgress.current / autoApplyProgress.total) * 100)}% complete</p>
+        </div>
+      </Modal>
+
+      {/* Tracker Tab */}
+      {tab === 'tracker' && (
+        <div className="flex flex-col gap-4">
+          {/* Search + Filter */}
+          <Input
+            leadingIcon={<Search size={15} />}
+            value={appSearch}
+            onChange={e => setAppSearch(e.target.value)}
+            placeholder="Search applications by title or company..."
+          />
+          <div className="flex gap-2 flex-wrap">
+            <button key="all" onClick={() => setFilterStatus('all')} className="transition-opacity hover:opacity-80">
+              <Badge variant={filterStatus === 'all' ? 'primary' : 'neutral'}>All</Badge>
+            </button>
+            {Object.entries(STATUS_META).map(([s, meta]) => (
+              <button key={s} onClick={() => setFilterStatus(s)} className="transition-opacity hover:opacity-80">
+                <Badge variant={filterStatus === s ? meta.variant : 'neutral'}>{meta.label}</Badge>
+              </button>
+            ))}
+          </div>
+
+          {/* Applications */}
+          {filteredApps.length === 0 ? (
+            <Card>
+              <EmptyState icon={<Briefcase size={20} />} title="No applications yet" message="Search and save jobs to start tracking them here." />
+            </Card>
+          ) : (
+            <Card>
+              <Table
+                columns={appTableColumns}
+                data={filteredApps}
+                rowKey={(a) => a.id}
+                pageSize={10}
+              />
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Edit Notes Modal */}
+      <Modal
+        open={!!editingApp}
+        onClose={() => setEditingApp(null)}
+        title="Application Notes"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditingApp(null)}>Cancel</Button>
+            <Button variant="success" icon={<Check size={14} />} onClick={() => updateNotes(editingApp)}>Save</Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {editingAppData?.cover_letter && (
+            <div className="p-3 rounded-xl bg-warning/5 border border-warning/15">
+              <p className="text-[11px] font-medium text-warning/70 uppercase tracking-wide mb-1">Cover Letter</p>
+              <p className="text-xs text-[var(--text-muted)] whitespace-pre-wrap">{editingAppData.cover_letter}</p>
+            </div>
+          )}
+          <Textarea
+            label="Notes"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={5}
+            autoResize={false}
+            placeholder="Add notes about this application..."
+          />
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteApp}
+        title="Delete application"
+        message={`Remove "${deleteTarget?.job_title}" at ${deleteTarget?.company} from your tracker? This cannot be undone.`}
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

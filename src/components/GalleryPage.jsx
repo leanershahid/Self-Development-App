@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Images, Upload, X, Loader2, Trash2, ZoomIn, Pencil, Check, MoreVertical, Download, Heart, Video } from "lucide-react";
-import Navbar from "./NavBar";
+import { Images, Upload, X, Trash2, ZoomIn, Pencil, Check, MoreVertical, Download, Heart, Video } from "lucide-react";
 import { supabase } from "../supabase";
+import { Card, CardHeader, CardBody, Badge, Button, IconButton, Tabs, EmptyState, SkeletonCard, Modal, useToast } from "./ui";
 
 const CLOUD_NAME = "dk8wc11kq";
 const UPLOAD_PRESET = "Self-Development";
 
 const TABS = [
-    { key: "gallery",  label: "Gallery",   Icon: Images, accent: "cyan",  color: "rgba(34,211,238,", border: "border-cyan-500/30",  text: "text-cyan-400",  bg: "bg-cyan-500/20",  hbg: "hover:bg-cyan-500/30",  table: "gallery" },
-    { key: "memories", label: "Memories",  Icon: Heart,  accent: "rose",  color: "rgba(251,113,133,", border: "border-rose-500/30",  text: "text-rose-400",  bg: "bg-rose-500/20",  hbg: "hover:bg-rose-500/30",  table: "memories" },
+    { key: "gallery",  label: "Gallery",   Icon: Images, table: "gallery" },
+    { key: "memories", label: "Memories",  Icon: Heart,  table: "memories" },
 ];
 
 function GalleryTab({ tab }) {
+    const toast = useToast();
     const [images, setImages]     = useState([]);
+    const [loading, setLoading]   = useState(true);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
     const [files, setFiles]       = useState([]); // [{ file, localUrl, caption, isVideo }]
@@ -31,8 +32,10 @@ function GalleryTab({ tab }) {
     }, []);
 
     async function fetchImages() {
+        setLoading(true);
         const { data } = await supabase.from(tab.table).select("*").order("created_at", { ascending: false });
         if (data) setImages(data);
+        setLoading(false);
     }
 
     function onFileChange(e) {
@@ -77,9 +80,10 @@ function GalleryTab({ tab }) {
             await supabase.from(tab.table).insert(rows);
             files.forEach(f => URL.revokeObjectURL(f.localUrl));
             setFiles([]);
+            toast.success(rows.length > 1 ? `Uploaded ${rows.length} files` : "Uploaded");
             fetchImages();
         } catch (err) {
-            alert("Upload failed: " + err.message);
+            toast.error("Upload failed: " + err.message);
         } finally {
             setUploading(false);
             setUploadProgress({ done: 0, total: 0 });
@@ -90,6 +94,7 @@ function GalleryTab({ tab }) {
         await supabase.from(tab.table).delete().eq("id", id);
         setImages(prev => prev.filter(img => img.id !== id));
         if (lightbox?.id === id) setLightbox(null);
+        toast.success("Deleted");
     }
 
     async function handleEditSave() {
@@ -97,6 +102,7 @@ function GalleryTab({ tab }) {
         await supabase.from(tab.table).update({ caption: editing.caption.trim() || null }).eq("id", editing.id);
         setImages(prev => prev.map(img => img.id === editing.id ? { ...img, caption: editing.caption.trim() || null } : img));
         setEditing(null);
+        toast.success("Caption updated");
     }
 
     async function handleDownload(url, cap) {
@@ -109,187 +115,197 @@ function GalleryTab({ tab }) {
         URL.revokeObjectURL(a.href);
     }
 
-    const { Icon, text, bg, hbg, border, color } = tab;
+    const { Icon } = tab;
 
     return (
         <>
             {/* Upload Card */}
-            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
-                className="dash-glass rounded-3xl p-4 sm:p-8 mb-8 sm:mb-12 max-w-2xl mx-auto">
-                <h2 className={`text-lg font-bold text-[#3D52A0] mb-6 flex items-center gap-2`}>
-                    <Upload size={18} className={text} /> Upload {tab.label === "Memories" ? "Memories" : "Images"}
-                </h2>
-
-                {/* Drop zone */}
-                <div
-                    onClick={() => fileRef.current.click()}
-                    className={`border-2 border-dashed border-slate-700 rounded-2xl p-5 sm:p-8 text-center cursor-pointer transition-colors mb-4`}
-                    style={{ borderColor: files.length ? `${color}0.4)` : undefined }}
-                >
-                    <div className="text-slate-500">
-                        <Upload size={32} className="mx-auto mb-2 opacity-40" />
-                        <p className="text-sm">Click to select images or videos</p>
-                        <p className="text-xs opacity-50 mt-1">Multiple files supported</p>
-                    </div>
-                </div>
-                <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={onFileChange} />
-
-                {/* Selected files previews */}
-                {files.length > 0 && (
-                    <div className="space-y-3 mb-4">
-                        {files.map((f, idx) => (
-                            <div key={idx} className="flex gap-3 items-center bg-slate-900/50 rounded-xl p-2 border border-white/5">
-                                <div className="relative flex-shrink-0">
-                                    {f.isVideo ? (
-                                        <div className="w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center">
-                                            <Video size={24} className={text} />
-                                        </div>
-                                    ) : (
-                                        <img src={f.localUrl} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-slate-400 truncate mb-1.5">{f.file.name}</p>
-                                    <input
-                                        type="text"
-                                        placeholder="Caption (optional)"
-                                        value={f.caption}
-                                        onChange={e => updateCaption(idx, e.target.value)}
-                                        className="w-full bg-slate-800/80 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 outline-none"
-                                    />
-                                </div>
-                                <button onClick={() => removeFile(idx)} className="flex-shrink-0 p-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg transition-all">
-                                    <X size={14} className="text-red-400" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                <div className="flex gap-3">
-                    <button
-                        onClick={handleUpload}
-                        disabled={!files.length || uploading}
-                        className={`flex-1 flex items-center justify-center gap-2 ${bg} ${hbg} border ${border} ${text} font-bold py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed`}
+            <Card>
+                <CardHeader
+                    icon={<Upload size={18} />}
+                    title={`Upload ${tab.label}`}
+                    subtitle="Images and videos — multiple files supported"
+                />
+                <CardBody className="flex flex-col gap-4">
+                    {/* Drop zone */}
+                    <div
+                        onClick={() => fileRef.current.click()}
+                        className="border-2 border-dashed border-[var(--border)] rounded-xl p-6 sm:p-10 text-center cursor-pointer transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
-                        {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                        {uploading
-                            ? `Uploading ${uploadProgress.done}/${uploadProgress.total}...`
-                            : files.length > 1 ? `Upload ${files.length} files` : "Upload"}
-                    </button>
-                    {files.length > 0 && !uploading && (
-                        <button
-                            onClick={() => { files.forEach(f => URL.revokeObjectURL(f.localUrl)); setFiles([]); }}
-                            className="px-4 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all"
-                        >
-                            <X size={16} />
-                        </button>
+                        <Upload size={28} className="mx-auto mb-2 text-[var(--text-muted)]" />
+                        <p className="text-sm text-[var(--text)]">Click to select images or videos</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Multiple files supported</p>
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={onFileChange} />
+
+                    {/* Selected files previews */}
+                    {files.length > 0 && (
+                        <div className="flex flex-col gap-3">
+                            {files.map((f, idx) => (
+                                <div key={idx} className="flex gap-3 items-center bg-[var(--surface-hover)] rounded-lg p-2 border border-[var(--border)]">
+                                    <div className="relative flex-shrink-0">
+                                        {f.isVideo ? (
+                                            <div className="w-14 h-14 rounded-lg bg-[var(--surface)] flex items-center justify-center text-[var(--text-muted)]">
+                                                <Video size={22} />
+                                            </div>
+                                        ) : (
+                                            <img src={f.localUrl} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-[var(--text-muted)] truncate mb-1.5">{f.file.name}</p>
+                                        <input
+                                            type="text"
+                                            placeholder="Caption (optional)"
+                                            value={f.caption}
+                                            onChange={e => updateCaption(idx, e.target.value)}
+                                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs text-[var(--text)] placeholder-[var(--text-muted)] outline-none focus:border-primary/40"
+                                        />
+                                    </div>
+                                    <IconButton variant="danger" label="Remove file" onClick={() => removeFile(idx)}>
+                                        <X size={14} />
+                                    </IconButton>
+                                </div>
+                            ))}
+                        </div>
                     )}
-                </div>
-            </motion.div>
+
+                    <div className="flex gap-3">
+                        <Button
+                            variant="primary"
+                            className="flex-1"
+                            disabled={!files.length || uploading}
+                            loading={uploading}
+                            icon={!uploading ? <Upload size={16} /> : null}
+                            onClick={handleUpload}
+                        >
+                            {uploading
+                                ? `Uploading ${uploadProgress.done}/${uploadProgress.total}...`
+                                : files.length > 1 ? `Upload ${files.length} files` : "Upload"}
+                        </Button>
+                        {files.length > 0 && !uploading && (
+                            <IconButton
+                                label="Clear selection"
+                                onClick={() => { files.forEach(f => URL.revokeObjectURL(f.localUrl)); setFiles([]); }}
+                            >
+                                <X size={16} />
+                            </IconButton>
+                        )}
+                    </div>
+                </CardBody>
+            </Card>
 
             {/* Grid */}
-            {images.length === 0 ? (
-                <div className="text-center text-slate-600 py-20">
-                    <Icon size={48} className="mx-auto mb-4 opacity-30" />
-                    <p className="font-mono text-sm">No media yet. Upload your first one.</p>
+            {loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
                 </div>
+            ) : images.length === 0 ? (
+                <Card>
+                    <EmptyState
+                        icon={<Icon size={20} />}
+                        title="No media yet"
+                        message={`Upload your first ${tab.key === "gallery" ? "image" : "memory"} to get started.`}
+                    />
+                </Card>
             ) : (
-                <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-                    {images.map((img, i) => (
-                        <motion.div
-                            key={img.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.04 }}
-                            className="gallery-card dash-glass rounded-2xl overflow-hidden break-inside-avoid group relative"
-                        >
-                            {img.type === "video" ? (
-                                <video
-                                    src={img.url}
-                                    className="w-full object-cover cursor-pointer"
-                                    onClick={() => setLightbox(img)}
-                                    muted playsInline
-                                    onMouseEnter={e => e.target.play()}
-                                    onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
-                                />
-                            ) : (
-                                <img
-                                    src={img.url}
-                                    alt={img.caption || "image"}
-                                    className="w-full object-cover cursor-pointer"
-                                    onClick={() => setLightbox(img)}
-                                />
-                            )}
-                            {/* Mobile 3-dot */}
-                            <button
-                                onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === img.id ? null : img.id); }}
-                                className="absolute top-2 right-2 z-20 p-1.5 bg-black/60 hover:bg-black/80 rounded-lg backdrop-blur-sm lg:hidden"
-                            >
-                                <MoreVertical size={15} className="text-[#3D52A0]" />
-                            </button>
-                            {menuOpen === img.id && (
-                                <div onClick={e => e.stopPropagation()} className="absolute top-9 right-2 z-30 bg-slate-900 border border-white/10 rounded-xl overflow-hidden shadow-xl lg:hidden">
-                                    <button onClick={() => { setLightbox(img); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-white/10 transition-all"><ZoomIn size={13} /> View</button>
-                                    <button onClick={() => { setEditing({ id: img.id, caption: img.caption || "" }); setMenuOpen(null); }} className={`flex items-center gap-2 w-full px-4 py-2.5 text-xs ${text} hover:bg-white/10 transition-all`}><Pencil size={13} /> Edit Caption</button>
-                                    <button onClick={() => { handleDownload(img.url, img.caption); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-all"><Download size={13} /> Download</button>
-                                    <button onClick={() => { handleDelete(img.id); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-all"><Trash2 size={13} /> Delete</button>
-                                </div>
-                            )}
-                            {/* Desktop hover overlay */}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all items-center justify-center gap-3 hidden lg:flex opacity-0 group-hover:opacity-100">
-                                <button onClick={() => setLightbox(img)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-all"><ZoomIn size={16} className="text-[#3D52A0]" /></button>
-                                <button onClick={() => setEditing({ id: img.id, caption: img.caption || "" })} className={`p-2 ${bg} ${hbg} rounded-xl backdrop-blur-sm transition-all`}><Pencil size={16} className={text} /></button>
-                                <button onClick={() => handleDownload(img.url, img.caption)} className="p-2 bg-emerald-500/20 hover:bg-emerald-500/40 rounded-xl backdrop-blur-sm transition-all"><Download size={16} className="text-emerald-400" /></button>
-                                <button onClick={() => handleDelete(img.id)} className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-xl backdrop-blur-sm transition-all"><Trash2 size={16} className="text-red-400" /></button>
-                            </div>
-                            {editing?.id === img.id ? (
-                                <div className="px-4 py-3 flex gap-2" onClick={e => e.stopPropagation()}>
-                                    <input
-                                        autoFocus
-                                        value={editing.caption}
-                                        onChange={e => setEditing(prev => ({ ...prev, caption: e.target.value }))}
-                                        onKeyDown={e => { if (e.key === "Enter") handleEditSave(); if (e.key === "Escape") setEditing(null); }}
-                                        className={`flex-1 bg-slate-900/80 border ${border} rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none`}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {images.map((img) => (
+                        <div key={img.id}>
+                            <Card className="overflow-hidden group relative">
+                                {img.type === "video" ? (
+                                    <video
+                                        src={img.url}
+                                        className="w-full h-36 sm:h-40 object-cover cursor-pointer"
+                                        onClick={() => setLightbox(img)}
+                                        muted playsInline
+                                        onMouseEnter={e => e.target.play()}
+                                        onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
                                     />
-                                    <button onClick={handleEditSave} className={`p-1.5 ${bg} ${hbg} rounded-lg transition-all`}><Check size={14} className={text} /></button>
-                                    <button onClick={() => setEditing(null)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition-all"><X size={14} className="text-slate-400" /></button>
+                                ) : (
+                                    <img
+                                        src={img.url}
+                                        alt={img.caption || "image"}
+                                        className="w-full h-36 sm:h-40 object-cover cursor-pointer"
+                                        onClick={() => setLightbox(img)}
+                                    />
+                                )}
+
+                                {img.type === "video" && (
+                                    <div className="absolute top-2 left-2 rounded-full bg-black/45 backdrop-blur-sm">
+                                        <Badge variant="info">
+                                            <Video size={10} /> Video
+                                        </Badge>
+                                    </div>
+                                )}
+
+                                {/* Mobile 3-dot */}
+                                <button
+                                    onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === img.id ? null : img.id); }}
+                                    className="absolute top-2 right-2 z-20 p-1.5 bg-black/55 hover:bg-black/75 rounded-lg backdrop-blur-sm text-white lg:hidden"
+                                >
+                                    <MoreVertical size={15} />
+                                </button>
+                                {menuOpen === img.id && (
+                                    <div onClick={e => e.stopPropagation()} className="absolute top-9 right-2 z-30 bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden shadow-[var(--shadow-lg)] lg:hidden">
+                                        <button onClick={() => { setLightbox(img); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-[var(--text)] hover:bg-[var(--surface-hover)] transition-all"><ZoomIn size={13} /> View</button>
+                                        <button onClick={() => { setEditing({ id: img.id, caption: img.caption || "" }); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-primary hover:bg-[var(--surface-hover)] transition-all"><Pencil size={13} /> Edit Caption</button>
+                                        <button onClick={() => { handleDownload(img.url, img.caption); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-accent hover:bg-accent/10 transition-all"><Download size={13} /> Download</button>
+                                        <button onClick={() => { handleDelete(img.id); setMenuOpen(null); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-danger hover:bg-danger/10 transition-all"><Trash2 size={13} /> Delete</button>
+                                    </div>
+                                )}
+
+                                {/* Desktop hover overlay */}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all items-center justify-center gap-2 hidden lg:flex opacity-0 group-hover:opacity-100">
+                                    <button onClick={() => setLightbox(img)} className="p-2 bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur-sm text-white transition-all"><ZoomIn size={16} /></button>
+                                    <button onClick={() => setEditing({ id: img.id, caption: img.caption || "" })} className="p-2 bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur-sm text-white transition-all"><Pencil size={16} /></button>
+                                    <button onClick={() => handleDownload(img.url, img.caption)} className="p-2 bg-emerald-500/30 hover:bg-emerald-500/50 rounded-lg backdrop-blur-sm text-white transition-all"><Download size={16} /></button>
+                                    <button onClick={() => handleDelete(img.id)} className="p-2 bg-red-500/30 hover:bg-red-500/50 rounded-lg backdrop-blur-sm text-white transition-all"><Trash2 size={16} /></button>
                                 </div>
-                            ) : img.caption ? (
-                                <div className="px-4 py-3">
-                                    <p className="text-slate-400 text-xs font-medium">{img.caption}</p>
-                                </div>
-                            ) : null}
-                        </motion.div>
+
+                                {editing?.id === img.id ? (
+                                    <div className="px-3 py-2.5 flex gap-2" onClick={e => e.stopPropagation()}>
+                                        <input
+                                            autoFocus
+                                            value={editing.caption}
+                                            onChange={e => setEditing(prev => ({ ...prev, caption: e.target.value }))}
+                                            onKeyDown={e => { if (e.key === "Enter") handleEditSave(); if (e.key === "Escape") setEditing(null); }}
+                                            className="flex-1 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text)] outline-none focus:border-primary/40"
+                                        />
+                                        <IconButton variant="accent" label="Save caption" onClick={handleEditSave}><Check size={14} /></IconButton>
+                                        <IconButton label="Cancel" onClick={() => setEditing(null)}><X size={14} /></IconButton>
+                                    </div>
+                                ) : img.caption ? (
+                                    <div className="px-3 py-2.5">
+                                        <p className="text-[var(--text-muted)] text-xs font-medium truncate">{img.caption}</p>
+                                    </div>
+                                ) : null}
+                            </Card>
+                        </div>
                     ))}
                 </div>
             )}
 
             {/* Lightbox */}
-            <AnimatePresence>
-                {lightbox && (
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-                        onClick={() => setLightbox(null)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
-                            onClick={e => e.stopPropagation()}
-                            className="relative w-full max-w-4xl max-h-[90vh] px-6"
-                        >
-                            {lightbox.type === "video" ? (
-                                <video src={lightbox.url} className="max-h-[80vh] w-full rounded-2xl object-contain" controls autoPlay />
-                            ) : (
-                                <img src={lightbox.url} alt={lightbox.caption || ""} className="max-h-[80vh] w-full rounded-2xl object-contain" />
-                            )}
-                            {lightbox.caption && <p className="text-center text-slate-400 text-sm mt-3">{lightbox.caption}</p>}
-                            <button onClick={() => setLightbox(null)} className="absolute top-2 right-0 p-2 bg-slate-800 hover:bg-slate-700 rounded-full border border-white/10 transition-all"><X size={16} className="text-[#3D52A0]" /></button>
-                            <button onClick={() => handleDownload(lightbox.url, lightbox.caption)} className="absolute top-2 left-0 p-2 bg-emerald-900/80 hover:bg-emerald-800 rounded-full border border-emerald-500/20 transition-all"><Download size={16} className="text-emerald-400" /></button>
-                        </motion.div>
-                    </motion.div>
+            <Modal
+                open={!!lightbox}
+                onClose={() => setLightbox(null)}
+                title={lightbox?.caption || (lightbox?.type === "video" ? "Video" : "Image")}
+                size="xl"
+                footer={lightbox && (
+                    <Button variant="secondary" icon={<Download size={16} />} onClick={() => handleDownload(lightbox.url, lightbox.caption)}>
+                        Download
+                    </Button>
                 )}
-            </AnimatePresence>
+            >
+                {lightbox && (
+                    lightbox.type === "video" ? (
+                        <video src={lightbox.url} className="w-full max-h-[70vh] rounded-lg object-contain bg-black" controls autoPlay />
+                    ) : (
+                        <img src={lightbox.url} alt={lightbox.caption || ""} className="w-full max-h-[70vh] rounded-lg object-contain" />
+                    )
+                )}
+            </Modal>
         </>
     );
 }
@@ -299,47 +315,27 @@ export default function GalleryPage() {
     const tab = TABS.find(t => t.key === activeTab);
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-[#020617] text-slate-200">
-            <Navbar />
-            <style>{`
-                .dash-glass { background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-                .gallery-card { transition: all 0.3s ease; }
-                .gallery-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0,229,255,0.08); }
-            `}</style>
-
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12">
-                {/* Header */}
-                <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center mb-10">
-                    <div className={`inline-flex items-center justify-center p-3 dash-glass rounded-2xl mb-6 ${tab.text} ${tab.border} shadow-[0_0_20px_rgba(34,211,238,0.2)]`}>
-                        <tab.Icon size={32} />
-                    </div>
-                    <h1 className="text-3xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-500 mb-4 tracking-tight">
-                        MY {tab.label.toUpperCase()}
-                    </h1>
-                    <p className={`${tab.text} font-mono text-sm tracking-[0.3em] uppercase opacity-60`}>
-                        {tab.key === "gallery" ? "Memories • Moments • Milestones" : "Cherished • Captured • Forever"}
-                    </p>
-                </motion.div>
-
-                {/* Sub-tab switcher */}
-                <div className="flex gap-2 mb-10 dash-glass p-1 rounded-xl w-fit mx-auto">
-                    {TABS.map(t => (
-                        <button
-                            key={t.key}
-                            onClick={() => setActiveTab(t.key)}
-                            className={`px-5 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all flex items-center gap-2 ${
-                                activeTab === t.key
-                                    ? `bg-gradient-to-r ${t.key === "gallery" ? "from-cyan-500/30 to-blue-500/30 text-cyan-300 border border-cyan-500/30" : "from-rose-500/30 to-pink-500/30 text-rose-300 border border-rose-500/30"}`
-                                    : "text-gray-500 hover:text-gray-300"
-                            }`}
-                        >
-                            <t.Icon size={13} /> {t.label}
-                        </button>
-                    ))}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+            {/* Header */}
+            <div className="text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-primary/10 text-primary">
+                    <tab.Icon size={28} />
                 </div>
-
-                <GalleryTab key={activeTab} tab={tab} />
+                <h1 className="text-2xl font-bold text-[var(--text)]">{tab.label}</h1>
+                <p className="text-sm text-[var(--text-muted)]">
+                    {tab.key === "gallery" ? "Memories, moments, and milestones." : "Cherished memories, captured forever."}
+                </p>
             </div>
-        </motion.div>
+
+            {/* Sub-tab switcher */}
+            <Tabs
+                tabs={TABS.map(t => ({ value: t.key, label: t.label }))}
+                value={activeTab}
+                onChange={setActiveTab}
+                className="justify-center"
+            />
+
+            <GalleryTab key={activeTab} tab={tab} />
+        </div>
     );
 }

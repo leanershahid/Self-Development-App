@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, IndianRupee, Search, Filter, Plus, PlusCircle, CheckCircle2, Edit2, Trash2, X, ShoppingCart, Check, AlertCircle, Minus, ArrowUp, Wallet, Percent, RefreshCw, Eye, ScanLine, Loader2 } from "lucide-react";
-import Navbar from "./NavBar";
+import {
+    PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, IndianRupee, Search, Filter,
+    Plus, PlusCircle, CheckCircle2, Edit2, Trash2, X, ShoppingCart, Check, AlertCircle, Minus,
+    ArrowUp, Wallet, Percent, RefreshCw, Eye, ScanLine, Loader2,
+} from "lucide-react";
 import CloudinaryUpload from "./CloudinaryUpload";
 import Chart from "react-apexcharts";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+    Button, IconButton, Input, DateField, Select, Card, CardHeader, CardBody, Badge, KpiCard, Table,
+    Modal, ConfirmDialog, useToast, Tabs, EmptyState, SkeletonCard,
+} from "./ui";
 
 const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
 const supabaseAnonKey =
@@ -51,12 +58,13 @@ If you cannot read the bill clearly, make your best reasonable guess. Respond wi
 }
 
 export default function MoneyPage() {
+    const toast = useToast();
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [deleteTxId, setDeleteTxId] = useState(null);
     const [activeTab, setActiveTab] = useState("transactions");
-    const [budgetViewMode, setBudgetViewMode] = useState("create"); // "create" or "view"
     const [shoppingPlans, setShoppingPlans] = useState([]);
     const [completedPlans, setCompletedPlans] = useState([]);
     const [shopForm, setShopForm] = useState({ name: "", amount: "", image_url: "", priority: "medium", quantity: "", unit: "nos" });
@@ -70,9 +78,9 @@ export default function MoneyPage() {
 
     const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
     const priorityConfig = {
-        high:   { label: "High",   color: "text-rose-400",   border: "border-rose-500/40",   bg: "bg-rose-500/10",   icon: <ArrowUp size={11} /> },
-        medium: { label: "Medium", color: "text-yellow-400", border: "border-yellow-500/40", bg: "bg-yellow-500/10", icon: <Minus size={11} /> },
-        low:    { label: "Low",    color: "text-slate-400",  border: "border-slate-500/40",  bg: "bg-slate-500/10",  icon: <AlertCircle size={11} /> },
+        high:   { label: "High",   variant: "danger",  icon: <ArrowUp size={11} /> },
+        medium: { label: "Medium", variant: "warning", icon: <Minus size={11} /> },
+        low:    { label: "Low",    variant: "neutral", icon: <AlertCircle size={11} /> },
     };
     const [showCompleted, setShowCompleted] = useState(false);
     const [txSearch, setTxSearch] = useState("");
@@ -97,14 +105,14 @@ export default function MoneyPage() {
         totalExpense: 0
     });
 
-    const NEON_COLORS = [
-        '#00e5ff', // cyan
-        '#7c4dff', // purple
-        '#ff3366', // rose
-        '#00e676', // emerald
-        '#ffea00', // yellow
-        '#ff9100', // orange
-        '#00b0ff'  // light blue
+    const CHART_COLORS = [
+        '#10b981', // accent — emerald
+        '#1e3a5f', // primary — navy
+        '#2563eb', // info — blue
+        '#d97706', // warning — amber
+        '#dc2626', // danger — red
+        '#334155', // secondary — slate
+        '#0ea371', // accent hover — emerald
     ];
 
     const [expenseData, setExpenseData] = useState({ series: [], options: {} });
@@ -132,7 +140,7 @@ export default function MoneyPage() {
                 date: extracted.date || new Date().toISOString().split("T")[0],
                 previewUrl,
             });
-        } catch (err) {
+        } catch {
             URL.revokeObjectURL(previewUrl);
             setScanError("Couldn't read that bill. Try a clearer photo or enter it manually.");
         } finally {
@@ -167,6 +175,7 @@ export default function MoneyPage() {
         }
         discardScanReview();
         await fetchTransactions();
+        toast.success("Transaction added from scan");
     }
 
     const [form, setForm] = useState({
@@ -205,24 +214,25 @@ export default function MoneyPage() {
         }));
         if (!budgetIncome || ledgers.length === 0) return;
         setBudgetLoading(true);
-        
+
         if (budgetEditMode && budgetSaved) {
             // Update existing budget plan
-            await supabase.from("budget_plan").update({ 
-                income: Number(budgetIncome), 
-                ledgers 
+            await supabase.from("budget_plan").update({
+                income: Number(budgetIncome),
+                ledgers
             }).eq("id", budgetSaved.id);
         } else {
             // Create new budget plan (delete old ones first)
             await supabase.from("budget_plan").delete().neq("id", 0);
             await supabase.from("budget_plan").insert({ income: Number(budgetIncome), ledgers });
         }
-        
+
         localStorage.removeItem("budget_draft");
         setBudgetDraft(null);
         setBudgetEditMode(false);
         await fetchBudgetPlan();
         setBudgetLoading(false);
+        toast.success("Budget plan saved");
     }
 
     function saveBudgetDraft() {
@@ -231,6 +241,7 @@ export default function MoneyPage() {
         const draft = { income: budgetIncome, ledgers: budgetLedgers };
         localStorage.setItem("budget_draft", JSON.stringify(draft));
         setBudgetDraft(draft);
+        toast.success("Draft saved");
     }
 
     function loadBudgetDraft() {
@@ -272,7 +283,7 @@ export default function MoneyPage() {
         if (budgetSaved?.ledgers) {
             const existingLedgerNames = budgetSaved.ledgers.map(l => l.name);
             const newCategories = existingLedgerNames.filter(name => name && !categories.includes(name));
-            
+
             if (newCategories.length > 0) {
                 newCategories.forEach(async (name) => {
                     await supabase.from("categories").upsert({ name }, { onConflict: "name" });
@@ -288,10 +299,10 @@ export default function MoneyPage() {
             const existing = budgetLedgers.find(l => l.name === cat);
             return existing || { name: cat, percent: "", amount: "" };
         });
-        
+
         // Add any existing ledgers that aren't categories
         const nonCategoryLedgers = budgetLedgers.filter(l => l.name && !categories.includes(l.name));
-        
+
         setBudgetLedgers([...categoryLedgers, ...nonCategoryLedgers]);
     }
 
@@ -300,8 +311,8 @@ export default function MoneyPage() {
         const numAmount = Number(amount) || 0;
         const income = Number(budgetIncome) || 0;
         const percent = income > 0 ? ((numAmount / income) * 100).toFixed(1) : "";
-        
-        setBudgetLedgers(ls => ls.map((x, j) => 
+
+        setBudgetLedgers(ls => ls.map((x, j) =>
             j === index ? { ...x, amount, percent } : x
         ));
     }
@@ -311,8 +322,8 @@ export default function MoneyPage() {
         const numPercent = Number(percent) || 0;
         const income = Number(budgetIncome) || 0;
         const amount = income > 0 ? ((numPercent / 100) * income).toFixed(0) : "";
-        
-        setBudgetLedgers(ls => ls.map((x, j) => 
+
+        setBudgetLedgers(ls => ls.map((x, j) =>
             j === index ? { ...x, percent, amount } : x
         ));
     }
@@ -321,7 +332,7 @@ export default function MoneyPage() {
     function updateIncome(newIncome) {
         setBudgetIncome(newIncome);
         const income = Number(newIncome) || 0;
-        
+
         if (income > 0) {
             setBudgetLedgers(ls => ls.map(l => {
                 if (l.percent) {
@@ -367,6 +378,7 @@ export default function MoneyPage() {
         setShopForm({ name: "", amount: "", image_url: "", priority: "medium", quantity: "", unit: "nos" });
         await fetchShoppingPlans();
         setShopLoading(false);
+        toast.success("Item added to shopping plan");
     }
 
     async function saveEditShopItem(e) {
@@ -384,6 +396,7 @@ export default function MoneyPage() {
         setEditingShopId(null);
         await fetchShoppingPlans();
         setShopLoading(false);
+        toast.success("Item updated");
     }
 
     async function completeShoppingItem(item) {
@@ -400,6 +413,7 @@ export default function MoneyPage() {
         await fetchShoppingPlans();
         await fetchTransactions();
         setShopLoading(false);
+        toast.success("Marked as purchased");
     }
 
     async function deleteShoppingItem(id) {
@@ -407,6 +421,7 @@ export default function MoneyPage() {
         await supabase.from("shopping_plans").delete().eq("id", id);
         await fetchShoppingPlans();
         setShopLoading(false);
+        toast.success("Item removed");
     }
 
     async function fetchTransactions() {
@@ -454,15 +469,14 @@ export default function MoneyPage() {
         setExpenseData({
             series: sortedExp.map(d => d.value),
             options: {
-                chart: { type: 'donut', background: 'transparent', foreColor: '#94a3b8' },
+                chart: { type: 'donut', background: 'transparent', foreColor: '#64748b' },
                 labels: sortedExp.map(d => d.name),
-                colors: NEON_COLORS,
-                stroke: { show: false },
+                colors: CHART_COLORS,
+                stroke: { show: true, colors: ['#ffffff'], width: 2 },
                 dataLabels: { enabled: false },
                 legend: {
                     position: 'bottom',
-                    fontFamily: 'monospace',
-                    labels: { colors: '#94a3b8' }
+                    labels: { colors: '#64748b' }
                 },
                 plotOptions: {
                     pie: {
@@ -471,19 +485,17 @@ export default function MoneyPage() {
                             background: 'transparent',
                             labels: {
                                 show: true,
-                                name: { show: true, fontSize: '12px', fontFamily: 'monospace', color: '#64748b' },
+                                name: { show: true, fontSize: '12px', color: '#64748b' },
                                 value: {
                                     show: true,
                                     fontSize: '20px',
-                                    fontFamily: 'monospace',
                                     fontWeight: 'bold',
-                                    color: '#1e293b',
+                                    color: '#0f172a',
                                     formatter: (val) => `₹${Number(val).toLocaleString()}`
                                 },
                                 total: {
                                     show: true,
                                     label: 'EXPENSES',
-                                    fontFamily: 'monospace',
                                     color: '#64748b',
                                     formatter: () => `₹${expense.toLocaleString()}`
                                 }
@@ -492,7 +504,7 @@ export default function MoneyPage() {
                     }
                 },
                 tooltip: {
-                    theme: 'dark',
+                    theme: 'light',
                     y: { formatter: (val) => `₹${val.toLocaleString()}` }
                 }
             }
@@ -500,7 +512,7 @@ export default function MoneyPage() {
 
         setIncomeData({
             series: [{
-                name: 'Volume',
+                name: 'Amount',
                 data: sortedInc.map(d => d.value)
             }],
             options: {
@@ -513,23 +525,23 @@ export default function MoneyPage() {
                         distributed: true
                     }
                 },
-                colors: NEON_COLORS.slice().reverse(),
+                colors: CHART_COLORS.slice().reverse(),
                 dataLabels: { enabled: false },
                 xaxis: {
                     categories: sortedInc.map(d => d.name),
                     labels: {
-                        style: { colors: '#94a3b8', fontFamily: 'monospace' },
+                        style: { colors: '#64748b' },
                         formatter: (val) => `₹${val}`
                     },
                     axisBorder: { show: false },
                     axisTicks: { show: false }
                 },
                 yaxis: {
-                    labels: { style: { colors: '#1e293b', fontFamily: 'monospace' } }
+                    labels: { style: { colors: '#0f172a' } }
                 },
-                grid: { borderColor: 'rgba(255,255,255,0.05)', strokeDashArray: 4 },
+                grid: { borderColor: '#e2e8f0', strokeDashArray: 4 },
                 tooltip: {
-                    theme: 'dark',
+                    theme: 'light',
                     y: { formatter: (val) => `₹${val.toLocaleString()}` }
                 }
             }
@@ -542,6 +554,7 @@ export default function MoneyPage() {
         e.preventDefault();
         if (!form.title.trim() || !form.amount) return;
 
+        const wasEdit = !!editingId;
         setLoading(true);
 
         if (editingId) {
@@ -558,6 +571,7 @@ export default function MoneyPage() {
 
             if (error) {
                 console.error(error);
+                toast.error("Failed to update transaction");
                 setLoading(false);
                 return;
             }
@@ -574,6 +588,7 @@ export default function MoneyPage() {
 
             if (error) {
                 console.error(error);
+                toast.error("Failed to add transaction");
                 setLoading(false);
                 return;
             }
@@ -590,11 +605,10 @@ export default function MoneyPage() {
         setFormOpen(false);
         setEditingId(null);
         await fetchTransactions();
+        toast.success(wasEdit ? "Transaction updated" : "Transaction added");
     }
 
     async function deleteTransaction(id) {
-        if (!window.confirm("Are you sure you want to scrub this record?")) return;
-
         setLoading(true);
         const { data: txn } = await supabase
             .from("money_transactions")
@@ -610,6 +624,14 @@ export default function MoneyPage() {
         }
 
         await fetchTransactions();
+        toast.success("Transaction deleted");
+    }
+
+    async function confirmDeleteTransaction() {
+        if (!deleteTxId) return;
+        const id = deleteTxId;
+        setDeleteTxId(null);
+        await deleteTransaction(id);
     }
 
     function startEdit(t) {
@@ -622,784 +644,529 @@ export default function MoneyPage() {
         });
         setEditingId(t.id);
         setFormOpen(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closeTransactionForm() {
+        setFormOpen(false);
+        setEditingId(null);
+        setShowNewCategory(false);
+        setNewCategoryInput("");
+        setForm({ title: "", amount: "", type: "expense", category: "", date: new Date().toISOString().split('T')[0] });
     }
 
     const getTypeStyle = (type) => {
-        if (type === 'income') return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-        if (type === 'expense') return "bg-rose-500/10 text-rose-400 border-rose-500/30";
-        return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+        if (type === 'income') return "bg-accent/10 text-accent";
+        if (type === 'expense') return "bg-danger/10 text-danger";
+        return "bg-info/10 text-info";
     };
 
     const getTypeIcon = (type) => {
-        if (type === 'income') return <TrendingUp size={20} className="text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />;
-        if (type === 'expense') return <TrendingDown size={20} className="text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.5)]" />;
-        return <IndianRupee size={20} className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />;
+        if (type === 'income') return <TrendingUp size={15} />;
+        if (type === 'expense') return <TrendingDown size={15} />;
+        return <IndianRupee size={15} />;
     };
 
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-[#020617] text-slate-200">
-            <Navbar />
-            <style>{`
-        .dash-glass { background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-        .dash-input { background: rgba(255,255,255,0.5); border: 1px solid rgba(112,145,230,0.35); color: #3D52A0; transition: all 0.3s ease; }
-        .dash-input:focus { border-color: rgba(34,211,238,0.5); box-shadow: 0 0 10px rgba(34,211,238,0.2); outline: none; }
-        .dash-btn { background: linear-gradient(to right, rgba(14,165,233,0.8), rgba(59,130,246,0.8)); color: white; border: 1px solid rgba(14,165,233,0.5); transition: all 0.3s ease; }
-        .dash-btn:hover { background: linear-gradient(to right, rgba(14,165,233,1), rgba(59,130,246,1)); box-shadow: 0 0 15px rgba(14,165,233,0.4); }
-      `}</style>
+    // ---- Derived data for rendering ----
+    const filteredTransactions = transactions.filter(t => {
+        const matchSearch = !txSearch || t.title.toLowerCase().includes(txSearch.toLowerCase()) || (t.category || "").toLowerCase().includes(txSearch.toLowerCase());
+        const matchLedger = filterLedgers.filter(x => x !== '__open').length === 0 || filterLedgers.filter(x => x !== '__open').includes(t.category || "");
+        const matchFrom = !filterFrom || t.date >= filterFrom;
+        const matchTo = !filterTo || t.date <= filterTo;
+        return matchSearch && matchLedger && matchFrom && matchTo;
+    });
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    const visibleShopItems = [...shoppingPlans]
+        .filter(i => i.name.toLowerCase().includes(shopSearch.toLowerCase()))
+        .sort((a, b) => PRIORITY_ORDER[a.priority || 'medium'] - PRIORITY_ORDER[b.priority || 'medium']);
 
-                {/* Tab Switcher */}
-                <div className="flex gap-2 mb-8 dash-glass p-1 rounded-xl w-fit flex-wrap">
-                    <button
-                        onClick={() => setActiveTab("transactions")}
-                        className={`px-5 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all ${
-                            activeTab === "transactions"
-                                ? "bg-gradient-to-r from-cyan-500/30 to-blue-500/30 text-cyan-300 border border-cyan-500/30"
-                                : "text-gray-500 hover:text-gray-300"
-                        }`}
-                    >
-                        <span className="flex items-center gap-2"><IndianRupee size={13} /> Finance Vault</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("shopping")}
-                        className={`px-5 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all ${
-                            activeTab === "shopping"
-                                ? "bg-gradient-to-r from-violet-500/30 to-purple-500/30 text-violet-300 border border-violet-500/30"
-                                : "text-gray-500 hover:text-gray-300"
-                        }`}
-                    >
-                        <span className="flex items-center gap-2"><ShoppingCart size={13} /> Shopping Plan</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("budget")}
-                        className={`px-5 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all ${
-                            activeTab === "budget"
-                                ? "bg-gradient-to-r from-amber-500/30 to-orange-500/30 text-amber-300 border border-amber-500/30"
-                                : "text-gray-500 hover:text-gray-300"
-                        }`}
-                    >
-                        <span className="flex items-center gap-2"><Wallet size={13} /> Budget Plan</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("budget-view")}
-                        className={`px-5 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all ${
-                            activeTab === "budget-view"
-                                ? "bg-gradient-to-r from-emerald-500/30 to-teal-500/30 text-emerald-300 border border-emerald-500/30"
-                                : "text-gray-500 hover:text-gray-300"
-                        }`}
-                    >
-                        <span className="flex items-center gap-2"><Eye size={13} /> Budget View</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("ledger-filter")}
-                        className={`px-5 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all ${
-                            activeTab === "ledger-filter"
-                                ? "bg-gradient-to-r from-cyan-500/30 to-indigo-500/30 text-cyan-300 border border-cyan-500/30"
-                                : "text-gray-500 hover:text-gray-300"
-                        }`}
-                    >
-                        <span className="flex items-center gap-2"><Filter size={13} /> Ledger Filter</span>
-                    </button>
+    const txColumns = [
+        {
+            key: 'title', header: 'Transaction', sortable: true,
+            render: (t) => (
+                <div className="flex items-center gap-2.5 min-w-[180px]">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${getTypeStyle(t.type)}`}>
+                        {getTypeIcon(t.type)}
+                    </span>
+                    <div className="min-w-0">
+                        <p className="font-medium text-[var(--text)] truncate">{t.title}</p>
+                        <p className="text-xs text-[var(--text-muted)] sm:hidden">{new Date(t.date).toLocaleDateString()}</p>
+                    </div>
                 </div>
+            ),
+        },
+        {
+            key: 'type', header: 'Type', sortable: true,
+            render: (t) => <Badge variant={t.type === 'income' ? 'success' : t.type === 'expense' ? 'danger' : 'info'} className="capitalize">{t.type}</Badge>,
+        },
+        {
+            key: 'category', header: 'Category', sortable: true, sortValue: (t) => t.category || '',
+            render: (t) => <Badge variant="neutral">{t.category || 'General'}</Badge>,
+        },
+        {
+            key: 'date', header: 'Date', sortable: true,
+            render: (t) => <span className="text-[var(--text-muted)]">{new Date(t.date).toLocaleDateString()}</span>,
+        },
+        {
+            key: 'amount', header: 'Amount', sortable: true, sortValue: (t) => Number(t.amount),
+            render: (t) => (
+                <span className={`font-semibold tabular-nums ${t.type === 'income' ? 'text-accent' : 'text-danger'}`}>
+                    {t.type === 'income' ? '+' : '-'}₹{Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+            ),
+        },
+        {
+            key: 'actions', header: '',
+            render: (t) => (
+                <div className="flex items-center gap-1 justify-end">
+                    <IconButton label="Edit transaction" size="sm" onClick={() => startEdit(t)}><Edit2 size={14} /></IconButton>
+                    <IconButton label="Delete transaction" size="sm" variant="danger" onClick={() => setDeleteTxId(t.id)}><Trash2 size={14} /></IconButton>
+                </div>
+            ),
+        },
+    ];
 
-                {activeTab === "transactions" && <>
-                {/* Header + Overview */}
-                <motion.div
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="text-center mb-10 relative"
-                >
-                    <input ref={scanFileRef} type="file" accept="image/*" className="hidden" onChange={handleScanFile} />
-
-                    <div className="absolute right-0 top-0 hidden md:flex gap-2 group">
-                        <button
-                            onClick={() => scanFileRef.current.click()}
-                            disabled={scanning}
-                            className="px-5 py-3 rounded-xl font-semibold flex items-center gap-2 text-xs tracking-widest uppercase transition-all hover:scale-105 disabled:opacity-50 bg-indigo-500/10 border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/20"
-                        >
-                            {scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
-                            {scanning ? "Scanning..." : "Scan Bill"}
-                        </button>
-                        <button
-                            onClick={() => setFormOpen(!formOpen)}
-                            className="dash-btn px-6 py-3 rounded-xl font-semibold flex items-center gap-2 text-xs tracking-widest uppercase transition-all hover:scale-105"
-                        >
-                            <Plus size={16} />
-                            New Transaction
-                        </button>
-                    </div>
-
-                    <div className="inline-flex items-center justify-center p-4 dash-glass rounded-2xl mb-4 text-emerald-400 border border-emerald-500/30 shadow-[0_0_20px_rgba(52,211,153,0.2)]">
-                        <IndianRupee size={42} strokeWidth={2} />
-                    </div>
-                    <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-white to-gray-400 mb-2 tracking-wide">
-                        Finance Vault
-                    </h1>
-                    <p className="text-cyan-400/60 font-mono text-sm tracking-widest uppercase mb-6 md:mb-0">
-                        Asset Tracking & Capital Flow
-                    </p>
-
-                    {scanError && (
-                        <p className="text-rose-400 text-xs font-mono mt-3">{scanError}</p>
-                    )}
-
-                    <div className="md:hidden mt-6 flex gap-2">
-                        <button
-                            onClick={() => scanFileRef.current.click()}
-                            disabled={scanning}
-                            className="flex-1 px-4 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs tracking-widest uppercase transition-all disabled:opacity-50 bg-indigo-500/10 border border-indigo-500/40 text-indigo-400"
-                        >
-                            {scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
-                            {scanning ? "Scanning..." : "Scan Bill"}
-                        </button>
-                        <button
-                            onClick={() => setFormOpen(!formOpen)}
-                            className="flex-1 dash-btn px-4 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs tracking-widest uppercase"
-                        >
-                            <Plus size={16} />
-                            New
-                        </button>
-                    </div>
-                </motion.div>
-
-                {/* Balance Overview Cards */}
-                <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"
-                >
-                    <div className="dash-glass p-6 rounded-2xl border-l-[4px] border-l-cyan-500 flex flex-col items-center justify-center relative overflow-hidden">
-                        <div className="absolute right-[-20%] top-[-20%] opacity-10">
-                            <IndianRupee size={150} />
-                        </div>
-                        <p className="text-xs font-mono tracking-widest text-gray-400 uppercase mb-2">Net Balance</p>
-                        <h2 className={`text-4xl font-bold ${balanceDetails.totalBalance >= 0 ? "text-cyan-400" : "text-rose-400"}`}>
-                            ₹{balanceDetails.totalBalance.toLocaleString()}
-                        </h2>
-                    </div>
-                    <div className="dash-glass p-6 rounded-2xl border-l-[4px] border-l-emerald-500 flex flex-col items-center justify-center relative overflow-hidden">
-                        <p className="text-xs font-mono tracking-widest text-emerald-400/70 uppercase mb-2">Total Income</p>
-                        <h2 className="text-3xl font-bold text-emerald-400">
-                            ₹{balanceDetails.totalIncome.toLocaleString()}
-                        </h2>
-                        <TrendingUp className="absolute bottom-4 right-4 text-emerald-500/20" size={40} />
-                    </div>
-                    <div className="dash-glass p-6 rounded-2xl border-l-[4px] border-l-rose-500 flex flex-col items-center justify-center relative overflow-hidden">
-                        <p className="text-xs font-mono tracking-widest text-rose-400/70 uppercase mb-2">Total Expenses</p>
-                        <h2 className="text-3xl font-bold text-rose-400">
-                            ₹{balanceDetails.totalExpense.toLocaleString()}
-                        </h2>
-                        <TrendingDown className="absolute bottom-4 right-4 text-rose-500/20" size={40} />
-                    </div>
-                </motion.div>
-
-                {/* Create Transaction Form */}
-                {formOpen && (
-                    <div className="mb-12 dash-glass rounded-3xl p-6 md:p-8 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500 to-emerald-500/0 opacity-50"></div>
-
-                        <h2 className="text-xl font-bold text-gray-200 mb-8 flex items-center gap-3 pb-4 border-b border-white/5">
-                            {editingId ? <Edit2 className="text-emerald-400" size={24} /> : <PlusCircle className="text-emerald-400" size={24} />}
-                            {editingId ? "Update Capital Transfer" : "Register Capital Transfer"}
-                        </h2>
-
-                        <form onSubmit={createTransaction} className="grid gap-6 md:grid-cols-2">
-                            {/* Title */}
-                            <div className="relative">
-                                <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Transaction Origin/Target *</label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Salary, Groceries, Rent"
-                                    className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600 focus:ring-1 focus:ring-emerald-500/50"
-                                    value={form.title}
-                                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                                    required
-                                />
-                            </div>
-
-                            {/* Amount */}
-                            <div className="relative">
-                                <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Value (₹) *</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="0.00"
-                                    className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600 focus:ring-1 focus:ring-emerald-500/50"
-                                    value={form.amount}
-                                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                                    required
-                                />
-                            </div>
-
-                            {/* Type */}
-                            <div className="relative">
-                                <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Flow Vector</label>
-                                <select
-                                    className="dash-input w-full px-4 py-3 rounded-xl appearance-none focus:ring-1 focus:ring-emerald-500/50"
-                                    value={form.type}
-                                    onChange={(e) => setForm({ ...form, type: e.target.value })}
-                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.5em 1.5em' }}
-                                >
-                                    <option value="expense" className="bg-gray-900">Outbound (Expense)</option>
-                                    <option value="income" className="bg-gray-900">Inbound (Income)</option>
-                                </select>
-                            </div>
-
-                            {/* Category */}
-                            <div className="relative">
-                                <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Class Index</label>
-                                {!showNewCategory ? (
-                                    <div className="flex gap-2">
-                                        <select
-                                            className="dash-input flex-1 px-4 py-3 rounded-xl appearance-none focus:ring-1 focus:ring-emerald-500/50"
-                                            value={form.category}
-                                            onChange={(e) => setForm({ ...form, category: e.target.value })}
-                                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.5em 1.5em' }}
-                                        >
-                                            <option value="" className="bg-gray-900">-- Select Class Index --</option>
-                                            {categories.map(c => (
-                                                <option key={c} value={c} className="bg-gray-900">{c}</option>
-                                            ))}
-                                        </select>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowNewCategory(true)}
-                                            className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all"
-                                            title="Create new category"
-                                        >
-                                            <Plus size={16} />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder="New class name..."
-                                            className="dash-input flex-1 px-4 py-3 rounded-xl placeholder-gray-600 focus:ring-1 focus:ring-emerald-500/50"
-                                            value={newCategoryInput}
-                                            onChange={(e) => setNewCategoryInput(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory(newCategoryInput))}
-                                            autoFocus
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => addCategory(newCategoryInput)}
-                                            className="px-3 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30 transition-all"
-                                        >
-                                            <CheckCircle2 size={16} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setShowNewCategory(false); setNewCategoryInput(""); }}
-                                            className="px-3 py-2 rounded-xl bg-gray-700/50 border border-white/10 text-gray-400 hover:bg-gray-700 transition-all"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Date */}
-                            <div className="relative md:col-span-2">
-                                <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Timestamp</label>
-                                <input
-                                    type="date"
-                                    className="dash-input w-full px-4 py-3 rounded-xl focus:ring-1 focus:ring-emerald-500/50"
-                                    value={form.date}
-                                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="flex gap-4 mt-6 md:col-span-2 pt-6 border-t border-white/5">
-                                <button
-                                    type="submit"
-                                    disabled={loading || !form.title.trim() || !form.amount}
-                                    className="flex-[2] py-3.5 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-semibold tracking-widest uppercase shadow-[0_0_15px_rgba(52,211,153,0.2)] disabled:opacity-50 transition-all border border-emerald-500/50"
-                                >
-                                    {loading ? "Processing..." : editingId ? "Save Changes" : "Commit Transaction"}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setFormOpen(false);
-                                        setEditingId(null);
-                                        setShowNewCategory(false);
-                                        setNewCategoryInput("");
-                                        setForm({ title: "", amount: "", type: "expense", category: "", date: new Date().toISOString().split('T')[0] });
-                                    }}
-                                    className="flex-1 px-8 py-3.5 bg-gray-900/50 hover:bg-gray-800 text-gray-400 border border-white/10 rounded-xl text-xs font-semibold tracking-widest uppercase transition-all"
-                                >
-                                    Abort
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {/* Charts Overview */}
-
-                <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10"
-                >
-                    {/* Expenses Doughnut Chart */}
-                    <div className="dash-glass p-6 rounded-2xl relative overflow-hidden">
-                        <h3 className="text-xl font-bold text-gray-200 mb-6 flex items-center gap-2">
-                            <PieChartIcon size={20} className="text-rose-400" />
-                            Ledger: Outbound Flow
-                        </h3>
-                        {expenseData.series?.length > 0 ? (
-                            <div className="h-[300px] w-full">
-                                <Chart
-                                    options={expenseData.options}
-                                    series={expenseData.series}
-                                    type="donut"
-                                    height="100%"
-                                />
-                            </div>
-                        ) : (
-                            <div className="h-[300px] flex items-center justify-center text-gray-500 font-mono text-xs uppercase tracking-widest">
-                                No outbound flow detected
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Income Bar Chart */}
-                    <div className="dash-glass p-6 rounded-2xl relative overflow-hidden">
-                        <h3 className="text-xl font-bold text-gray-200 mb-6 flex items-center gap-2">
-                            <BarChart3 size={20} className="text-emerald-400" />
-                            Ledger: Inbound Channels
-                        </h3>
-                        {incomeData.series?.[0]?.data?.length > 0 ? (
-                            <div className="h-[300px] w-full">
-                                <Chart
-                                    options={incomeData.options}
-                                    series={incomeData.series}
-                                    type="bar"
-                                    height="100%"
-                                />
-                            </div>
-                        ) : (
-                            <div className="h-[300px] flex items-center justify-center text-gray-500 font-mono text-xs uppercase tracking-widest">
-                                No inbound signal detected
-                            </div>
-                        )}
-                    </div>
-                </motion.div>
-
-                {/* Transactions List */}
-                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-                    <h3 className="text-xl font-bold text-gray-200 flex items-center gap-2">
-                        <Filter size={20} className="text-cyan-400" />
-                        Ledger History
-                    </h3>
-                    <div className="relative flex-1 max-w-sm">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                        <input
-                            type="text"
-                            placeholder="Search transactions..."
-                            className="dash-input w-full pl-9 pr-4 py-2 rounded-xl text-sm placeholder-gray-600"
-                            value={txSearch}
-                            onChange={(e) => setTxSearch(e.target.value)}
+    const shopColumns = [
+        {
+            key: 'name', header: 'Item', sortable: true,
+            render: (item) => (
+                <div className="flex items-center gap-3 min-w-[200px]">
+                    {item.image_url ? (
+                        <img
+                            src={item.image_url} alt={item.name}
+                            className="w-10 h-10 rounded-lg object-cover shrink-0 border border-[var(--border)] cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setLightboxImg(item.image_url)}
+                            onError={(e) => { e.target.style.display = 'none'; }}
                         />
+                    ) : (
+                        <span className="w-10 h-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
+                            <ShoppingCart size={16} />
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <p className="font-medium text-[var(--text)] truncate">{item.name}</p>
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            {(() => { const p = priorityConfig[item.priority || 'medium']; return (
+                                <Badge variant={p.variant}>{p.icon}{p.label}</Badge>
+                            ); })()}
+                            {item.quantity && <Badge variant="neutral">{item.quantity} {item.unit || 'nos'}</Badge>}
+                        </div>
                     </div>
                 </div>
-                {
-                    loading ? (
-                        <div className="flex justify-center py-20">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin shadow-[0_0_15px_rgba(52,211,153,0.5)]"></div>
-                                <div className="text-emerald-400 font-mono text-sm tracking-widest uppercase animate-pulse">Syncing Ledger...</div>
+            ),
+        },
+        {
+            key: 'amount', header: 'Est. Amount', sortable: true, sortValue: (item) => Number(item.amount),
+            render: (item) => (
+                <span className="font-semibold text-[var(--text)] tabular-nums">
+                    ₹{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+            ),
+        },
+        {
+            key: 'actions', header: '',
+            render: (item) => (
+                <div className="flex items-center gap-1 justify-end">
+                    <IconButton
+                        label="Edit item"
+                        size="sm"
+                        disabled={shopLoading}
+                        onClick={() => { setEditingShopId(item.id); setEditShopForm({ name: item.name, amount: item.amount, image_url: item.image_url || "", priority: item.priority || "medium", quantity: item.quantity || "", unit: item.unit || "nos" }); }}
+                    >
+                        <Edit2 size={14} />
+                    </IconButton>
+                    <IconButton label="Mark as purchased" size="sm" variant="accent" disabled={shopLoading} onClick={() => completeShoppingItem(item)}>
+                        <Check size={14} />
+                    </IconButton>
+                    <IconButton label="Remove item" size="sm" variant="danger" disabled={shopLoading} onClick={() => deleteShoppingItem(item.id)}>
+                        <Trash2 size={14} />
+                    </IconButton>
+                </div>
+            ),
+        },
+    ];
+
+    const txCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
+    const ledgerNames = [...new Set([
+        ...(budgetSaved?.ledgers?.map(l => l.name) || []),
+        ...categories,
+        ...txCategories
+    ])];
+    const activeLedgers = filterLedgers.filter(x => x !== '__open');
+    const toggleLedger = (n) => setFilterLedgers(prev => {
+        const active = prev.filter(x => x !== '__open');
+        return active.includes(n) ? active.filter(x => x !== n) : [...active, n];
+    });
+    const matchDate = (t) => (!filterFrom || t.date >= filterFrom) && (!filterTo || t.date <= filterTo);
+    const ledgerFilterIncome = activeLedgers.reduce((sum, ledger) => {
+        return sum + transactions.filter(t => (t.category || '') === ledger && t.type === 'income' && matchDate(t)).reduce((s, t) => s + Number(t.amount), 0);
+    }, 0);
+    const ledgerFilterExpense = activeLedgers.reduce((sum, ledger) => {
+        return sum + transactions.filter(t => (t.category || '') === ledger && t.type === 'expense' && matchDate(t)).reduce((s, t) => s + Number(t.amount), 0);
+    }, 0);
+
+    if (loading && transactions.length === 0 && shoppingPlans.length === 0 && !budgetSaved) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <SkeletonCard /><SkeletonCard /><SkeletonCard />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+            <input ref={scanFileRef} type="file" accept="image/*" className="hidden" onChange={handleScanFile} />
+
+            {/* Header */}
+            <div className="text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-accent/10 text-accent">
+                    <IndianRupee size={28} />
+                </div>
+                <h1 className="text-2xl font-bold text-[var(--text)]">Finance Tracker</h1>
+                <p className="text-sm text-[var(--text-muted)]">Transactions, budget and shopping — all in one place.</p>
+            </div>
+
+            {/* Tabs */}
+            <Tabs
+                tabs={[
+                    { value: 'transactions', label: 'Transactions' },
+                    { value: 'shopping', label: 'Shopping Plan' },
+                    { value: 'budget', label: 'Budget Plan' },
+                    { value: 'budget-view', label: 'Budget View' },
+                    { value: 'ledger-filter', label: 'Ledger Filter' },
+                ]}
+                value={activeTab}
+                onChange={setActiveTab}
+            />
+
+            {/* ===================== TRANSACTIONS TAB ===================== */}
+            {activeTab === "transactions" && (
+                <AnimatePresence mode="wait">
+                    <motion.div key="transactions" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-[var(--text)]">Overview</h2>
+                                <p className="text-sm text-[var(--text-muted)]">Your income, expenses and balance at a glance.</p>
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                                <Button
+                                    variant="secondary"
+                                    icon={scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
+                                    disabled={scanning}
+                                    onClick={() => scanFileRef.current.click()}
+                                >
+                                    {scanning ? "Scanning..." : "Scan Bill"}
+                                </Button>
+                                <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(v => !v)}>
+                                    New Transaction
+                                </Button>
                             </div>
                         </div>
-                    ) : transactions.length === 0 ? (
-                        <div className="text-center py-20 dash-glass rounded-3xl mt-8">
-                            <div className="inline-flex items-center justify-center p-6 bg-gray-900/50 border border-white/5 rounded-3xl mb-6">
-                                <Search className="text-gray-600" size={56} strokeWidth={1.5} />
-                            </div>
-                            <h3 className="text-2xl font-bold text-gray-300 mb-2">No Transactions Detected</h3>
-                            <p className="text-gray-500 font-mono text-[10px] tracking-widest uppercase mb-8">Initiate capital flow to view records</p>
-                            <button
-                                onClick={() => setFormOpen(true)}
-                                className="px-8 py-4 dash-btn bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-600 rounded-xl font-semibold text-xs tracking-widest uppercase border-emerald-500/50"
-                            >
-                                Execute First Transfer
-                            </button>
+
+                        {scanError && <p className="text-sm text-danger text-center">{scanError}</p>}
+
+                        {/* Balance Overview */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <KpiCard
+                                icon={<Wallet size={18} />}
+                                label="Net Balance"
+                                value={`₹${balanceDetails.totalBalance.toLocaleString()}`}
+                                tone={balanceDetails.totalBalance >= 0 ? 'primary' : 'danger'}
+                            />
+                            <KpiCard
+                                icon={<TrendingUp size={18} />}
+                                label="Total Income"
+                                value={`₹${balanceDetails.totalIncome.toLocaleString()}`}
+                                tone="accent"
+                            />
+                            <KpiCard
+                                icon={<TrendingDown size={18} />}
+                                label="Total Expenses"
+                                value={`₹${balanceDetails.totalExpense.toLocaleString()}`}
+                                tone="danger"
+                            />
                         </div>
-                    ) : (
-                        <div className="dash-glass rounded-2xl overflow-hidden">
-                            <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/5 bg-gray-900/50 text-xs font-mono tracking-widest uppercase text-gray-400">
-                                <div className="col-span-1 text-center">Dir</div>
-                                <div className="col-span-4">Entity/Details</div>
-                                <div className="col-span-2">Class</div>
-                                <div className="col-span-2 text-right">Date</div>
-                                <div className="col-span-2 text-right">Volume</div>
-                                <div className="col-span-1 text-center">Actions</div>
-                            </div>
 
-                            <div className="divide-y divide-white/5">
-                                {transactions.filter(t => {
-                                    const matchSearch = !txSearch || t.title.toLowerCase().includes(txSearch.toLowerCase()) || (t.category || "").toLowerCase().includes(txSearch.toLowerCase());
-                                    const matchLedger = filterLedgers.filter(x => x !== '__open').length === 0 || filterLedgers.filter(x => x !== '__open').includes(t.category || "");
-                                    const matchFrom = !filterFrom || t.date >= filterFrom;
-                                    const matchTo = !filterTo || t.date <= filterTo;
-                                    return matchSearch && matchLedger && matchFrom && matchTo;
-                                }).map((t) => (
-                                    <div key={t.id} className="p-4 md:grid md:grid-cols-12 md:gap-4 md:items-center hover:bg-white/[0.02] transition-colors group">
-                                        <div className="hidden md:flex col-span-1 justify-center">
-                                            {getTypeIcon(t.type)}
+                        {/* Charts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <Card>
+                                <CardHeader title="Expenses by Category" icon={<PieChartIcon size={16} />} />
+                                <CardBody>
+                                    {expenseData.series?.length > 0 ? (
+                                        <div className="h-[280px] w-full">
+                                            <Chart options={expenseData.options} series={expenseData.series} type="donut" height="100%" />
                                         </div>
-
-                                        <div className="col-span-4 mb-2 md:mb-0 flex items-center gap-3">
-                                            <div className="md:hidden">
-                                                {getTypeIcon(t.type)}
-                                            </div>
-                                            <div>
-                                                <p className="text-[#3D52A0] font-medium group-hover:text-cyan-400 transition-colors">{t.title}</p>
-                                                <p className="text-xs text-gray-500 md:hidden mt-0.5">{new Date(t.date).toLocaleDateString()} &bull; {t.category || 'Uncategorized'}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="hidden md:block col-span-2">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono tracking-wider uppercase border border-white/10 bg-white/5 text-gray-300`}>
-                                                {t.category || "General"}
-                                            </span>
-                                        </div>
-
-                                        <div className="hidden md:block col-span-2 text-right text-sm text-gray-400 font-mono">
-                                            {new Date(t.date).toLocaleDateString()}
-                                        </div>
-
-                                        <div className="col-span-2 text-right">
-                                            <span className={`text-lg md:text-xl font-bold font-mono tracking-wide ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {t.type === 'income' ? '+' : '-'}₹{Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </span>
-                                        </div>
-
-                                        <div className="hidden md:flex col-span-1 justify-center items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => startEdit(t)} className="text-cyan-400 hover:text-cyan-300">
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button onClick={() => deleteTransaction(t.id)} className="text-rose-500 hover:text-rose-400">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-
-                                        {/* Mobile Actions */}
-                                        <div className="md:hidden mt-4 pt-4 border-t border-white/5 flex gap-4 w-full">
-                                            <button onClick={() => startEdit(t)} className="flex-1 py-2 rounded bg-cyan-500/10 text-cyan-400 text-xs font-mono tracking-widest uppercase border border-cyan-500/20 flex items-center justify-center gap-2">
-                                                <Edit2 size={12} /> Edit
-                                            </button>
-                                            <button onClick={() => deleteTransaction(t.id)} className="flex-1 py-2 rounded bg-rose-500/10 text-rose-500 text-xs font-mono tracking-widest uppercase border border-rose-500/20 flex items-center justify-center gap-2">
-                                                <Trash2 size={12} /> Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )
-                }
-                </>
-                }
-
-                {activeTab === "ledger-filter" && (() => {
-                    const txCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))];
-                    const ledgerNames = [...new Set([
-                        ...(budgetSaved?.ledgers?.map(l => l.name) || []),
-                        ...categories,
-                        ...txCategories
-                    ])];
-                    const activeLedgers = filterLedgers.filter(x => x !== '__open');
-                    const toggle = (n) => setFilterLedgers(prev => {
-                        const active = prev.filter(x => x !== '__open');
-                        return active.includes(n) ? active.filter(x => x !== n) : [...active, n];
-                    });
-
-                    const matchDate = (t) => (!filterFrom || t.date >= filterFrom) && (!filterTo || t.date <= filterTo);
-
-                    const totalIncome = activeLedgers.reduce((sum, ledger) => {
-                        return sum + transactions.filter(t => (t.category || '') === ledger && t.type === 'income' && matchDate(t)).reduce((s, t) => s + Number(t.amount), 0);
-                    }, 0);
-                    const totalExpense = activeLedgers.reduce((sum, ledger) => {
-                        return sum + transactions.filter(t => (t.category || '') === ledger && t.type === 'expense' && matchDate(t)).reduce((s, t) => s + Number(t.amount), 0);
-                    }, 0);
-
-                    return (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-                            <div className="text-center mb-8">
-                                <div className="inline-flex items-center justify-center p-4 dash-glass rounded-2xl mb-4 text-cyan-400 border border-cyan-500/30 shadow-[0_0_20px_rgba(34,211,238,0.2)]">
-                                    <Filter size={42} strokeWidth={2} />
-                                </div>
-                                <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-white to-gray-400 mb-2 tracking-wide">Ledger Filter</h1>
-                                <p className="text-cyan-400/60 font-mono text-sm tracking-widest uppercase">Select ledgers to view totals</p>
-                            </div>
-
-                            {/* Date range */}
-                            <div className="dash-glass rounded-2xl p-5 mb-4">
-                                <p className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-3">Date Range</p>
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <div className="flex flex-col gap-1 flex-1">
-                                        <label className="text-[10px] font-mono tracking-widest uppercase text-gray-500">From</label>
-                                        <input type="date" className="dash-input px-3 py-2 rounded-xl text-sm w-full" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
-                                    </div>
-                                    <div className="flex flex-col gap-1 flex-1">
-                                        <label className="text-[10px] font-mono tracking-widest uppercase text-gray-500">To</label>
-                                        <input type="date" className="dash-input px-3 py-2 rounded-xl text-sm w-full" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
-                                    </div>
-                                    {(filterFrom || filterTo) && (
-                                        <div className="flex items-end">
-                                            <button onClick={() => { setFilterFrom(''); setFilterTo(''); }}
-                                                className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-mono tracking-widest uppercase hover:bg-rose-500/20 transition-all flex items-center gap-1"
-                                            >
-                                                <X size={12} /> Clear
-                                            </button>
-                                        </div>
+                                    ) : (
+                                        <EmptyState icon={<PieChartIcon size={18} />} title="No expenses yet" message="Add an expense transaction to see the breakdown." />
                                     )}
-                                </div>
-                            </div>
+                                </CardBody>
+                            </Card>
 
-                            {/* Ledger pill toggles */}
-                            <div className="dash-glass rounded-2xl p-5 mb-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-mono tracking-widest uppercase text-gray-400">Select Ledgers</p>
-                                    {activeLedgers.length > 0 && (
-                                        <button onClick={() => setFilterLedgers([])}
-                                            className="text-[10px] font-mono tracking-widest uppercase text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-1"
-                                        >
-                                            <X size={10} /> Clear all
-                                        </button>
+                            <Card>
+                                <CardHeader title="Income by Category" icon={<BarChart3 size={16} />} />
+                                <CardBody>
+                                    {incomeData.series?.[0]?.data?.length > 0 ? (
+                                        <div className="h-[280px] w-full">
+                                            <Chart options={incomeData.options} series={incomeData.series} type="bar" height="100%" />
+                                        </div>
+                                    ) : (
+                                        <EmptyState icon={<BarChart3 size={18} />} title="No income yet" message="Add an income transaction to see the breakdown." />
                                     )}
-                                </div>
-                                {ledgerNames.length === 0 ? (
-                                    <p className="text-gray-500 font-mono text-xs">No ledgers found. Add transactions with categories first.</p>
-                                ) : (
-                                    <div className="flex flex-wrap gap-2">
-                                        {ledgerNames.map(n => {
-                                            const active = activeLedgers.includes(n);
-                                            const txCount = transactions.filter(t => (t.category || '') === n).length;
-                                            return (
-                                                <button key={n} onClick={() => toggle(n)}
-                                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono tracking-widest uppercase border transition-all ${
-                                                        active
-                                                            ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.15)]'
-                                                            : 'bg-white/5 border-white/10 text-gray-400 hover:border-cyan-500/30 hover:text-gray-200'
-                                                    }`}
-                                                >
-                                                    {active && <CheckCircle2 size={11} className="text-cyan-400" />}
-                                                    {n}
-                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/10 text-gray-500'}`}>{txCount}</span>
-                                                </button>
-                                            );
-                                        })}
+                                </CardBody>
+                            </Card>
+                        </div>
+
+                        {/* Transaction Ledger */}
+                        <Card>
+                            <CardHeader
+                                title="Transaction Ledger"
+                                icon={<Filter size={16} />}
+                                action={
+                                    <div className="w-full sm:w-64">
+                                        <Input
+                                            leadingIcon={<Search size={14} />}
+                                            placeholder="Search transactions..."
+                                            value={txSearch}
+                                            onChange={(e) => setTxSearch(e.target.value)}
+                                        />
+                                    </div>
+                                }
+                            />
+                            <CardBody>
+                                <Table
+                                    columns={txColumns}
+                                    data={filteredTransactions}
+                                    rowKey={(t) => t.id}
+                                    loading={loading}
+                                    pageSize={10}
+                                    emptyState={
+                                        <EmptyState
+                                            icon={<Search size={20} />}
+                                            title={transactions.length === 0 ? "No transactions yet" : "No matching transactions"}
+                                            message={transactions.length === 0 ? "Record your first transaction to start tracking." : "Try adjusting your search or filters."}
+                                            action={transactions.length === 0 ? (
+                                                <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>New Transaction</Button>
+                                            ) : undefined}
+                                        />
+                                    }
+                                />
+                            </CardBody>
+                        </Card>
+                    </motion.div>
+                </AnimatePresence>
+            )}
+
+            {/* ===================== LEDGER FILTER TAB ===================== */}
+            {activeTab === "ledger-filter" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+                    <div className="text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-info/10 text-info">
+                            <Filter size={28} />
+                        </div>
+                        <h2 className="text-lg font-semibold text-[var(--text)]">Ledger Filter</h2>
+                        <p className="text-sm text-[var(--text-muted)]">Select ledgers to see combined totals for a date range.</p>
+                    </div>
+
+                    <Card>
+                        <CardHeader title="Date Range" icon={<Filter size={16} />} />
+                        <CardBody>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <DateField label="From" className="flex-1" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+                                <DateField label="To" className="flex-1" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+                                {(filterFrom || filterTo) && (
+                                    <div className="flex items-end">
+                                        <Button variant="ghost" icon={<X size={14} />} onClick={() => { setFilterFrom(''); setFilterTo(''); }}>Clear</Button>
                                     </div>
                                 )}
                             </div>
+                        </CardBody>
+                    </Card>
 
-                            {/* Per-ledger cards */}
-                            {activeLedgers.length === 0 ? (
-                                <div className="text-center py-16 dash-glass rounded-3xl">
-                                    <Filter className="mx-auto text-gray-600 mb-4" size={48} strokeWidth={1.5} />
-                                    <p className="text-gray-500 font-mono text-xs tracking-widest uppercase">Select ledgers above to view totals</p>
-                                </div>
+                    <Card>
+                        <CardHeader
+                            title="Select Ledgers"
+                            icon={<Filter size={16} />}
+                            action={activeLedgers.length > 0 && (
+                                <Button variant="ghost" size="sm" icon={<X size={12} />} onClick={() => setFilterLedgers([])}>Clear all</Button>
+                            )}
+                        />
+                        <CardBody>
+                            {ledgerNames.length === 0 ? (
+                                <p className="text-sm text-[var(--text-muted)]">No ledgers found. Add transactions with categories first.</p>
                             ) : (
-                                <>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                                        {activeLedgers.map((ledger, idx) => {
-                                            const txns = transactions.filter(t => (t.category || '') === ledger && matchDate(t));
-                                            const inc = txns.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-                                            const exp = txns.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-                                            const net = inc - exp;
-                                            const color = NEON_COLORS[idx % NEON_COLORS.length];
-                                            return (
-                                                <div key={ledger} className="dash-glass rounded-2xl p-5 border border-white/10 relative overflow-hidden">
-                                                    <div className="absolute top-0 left-0 w-full h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <h3 className="font-mono tracking-widest uppercase text-sm font-bold truncate" style={{ color }}>{ledger}</h3>
-                                                        <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{txns.length} txn{txns.length !== 1 ? 's' : ''}</span>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xs font-mono text-emerald-400/70 uppercase tracking-widest">Income</span>
-                                                            <span className="text-base font-bold text-emerald-400 font-mono">₹{inc.toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xs font-mono text-rose-400/70 uppercase tracking-widest">Expense</span>
-                                                            <span className="text-base font-bold text-rose-400 font-mono">₹{exp.toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                                                            <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">Net</span>
-                                                            <span className={`text-xl font-bold font-mono ${net >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>₹{net.toLocaleString()}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {ledgerNames.map(n => {
+                                        const active = activeLedgers.includes(n);
+                                        const txCount = transactions.filter(t => (t.category || '') === n).length;
+                                        return (
+                                            <button
+                                                key={n}
+                                                onClick={() => toggleLedger(n)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                                    active
+                                                        ? 'bg-primary/10 border-primary/30 text-primary'
+                                                        : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                                                }`}
+                                            >
+                                                {active && <CheckCircle2 size={12} />}
+                                                {n}
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${active ? 'bg-primary/15' : 'bg-[var(--border)]'}`}>{txCount}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </CardBody>
+                    </Card>
 
-                                    {/* Combined totals */}
-                                    {activeLedgers.length > 1 && (
-                                        <div className="dash-glass rounded-2xl p-5 border border-cyan-500/20 relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-cyan-500/0 via-cyan-500 to-cyan-500/0" />
-                                            <p className="text-[10px] font-mono tracking-widest uppercase text-cyan-400/70 mb-4">Combined Total — {activeLedgers.length} Ledgers</p>
-                                            <div className="grid grid-cols-3 gap-4">
-                                                <div className="text-center">
-                                                    <p className="text-[10px] font-mono tracking-widest uppercase text-emerald-400/70 mb-1">Total Income</p>
-                                                    <p className="text-2xl font-bold text-emerald-400 font-mono">₹{totalIncome.toLocaleString()}</p>
+                    {activeLedgers.length === 0 ? (
+                        <Card><EmptyState icon={<Filter size={20} />} title="No ledgers selected" message="Select ledgers above to view totals." /></Card>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {activeLedgers.map((ledger, idx) => {
+                                    const txns = transactions.filter(t => (t.category || '') === ledger && matchDate(t));
+                                    const inc = txns.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+                                    const exp = txns.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+                                    const net = inc - exp;
+                                    const color = CHART_COLORS[idx % CHART_COLORS.length];
+                                    return (
+                                        <Card key={ledger} className="p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h3 className="font-semibold text-sm truncate" style={{ color }}>{ledger}</h3>
+                                                <span className="text-xs text-[var(--text-muted)] bg-[var(--surface-hover)] px-2 py-0.5 rounded-full">{txns.length} txn{txns.length !== 1 ? 's' : ''}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-[var(--text-muted)]">Income</span>
+                                                    <span className="font-semibold text-accent">₹{inc.toLocaleString()}</span>
                                                 </div>
-                                                <div className="text-center">
-                                                    <p className="text-[10px] font-mono tracking-widest uppercase text-rose-400/70 mb-1">Total Expense</p>
-                                                    <p className="text-2xl font-bold text-rose-400 font-mono">₹{totalExpense.toLocaleString()}</p>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-[var(--text-muted)]">Expense</span>
+                                                    <span className="font-semibold text-danger">₹{exp.toLocaleString()}</span>
                                                 </div>
-                                                <div className="text-center">
-                                                    <p className="text-[10px] font-mono tracking-widest uppercase text-cyan-400/70 mb-1">Net Balance</p>
-                                                    <p className={`text-2xl font-bold font-mono ${totalIncome - totalExpense >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>₹{(totalIncome - totalExpense).toLocaleString()}</p>
+                                                <div className="pt-1.5 mt-1 border-t border-[var(--border)] flex justify-between items-center">
+                                                    <span className="text-xs text-[var(--text-muted)]">Net</span>
+                                                    <span className={`font-bold ${net >= 0 ? 'text-primary' : 'text-danger'}`}>₹{net.toLocaleString()}</span>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </motion.div>
-                    );
-                })()}
-
-                {activeTab === "budget-view" && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-                        <div className="text-center mb-10">
-                            <div className="inline-flex items-center justify-center p-4 dash-glass rounded-2xl mb-4 text-emerald-400 border border-emerald-500/30 shadow-[0_0_20px_rgba(52,211,153,0.2)]">
-                                <Eye size={42} strokeWidth={2} />
+                                        </Card>
+                                    );
+                                })}
                             </div>
-                            <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-white to-gray-400 mb-2 tracking-wide">Budget Analysis</h1>
-                            <p className="text-emerald-400/60 font-mono text-sm tracking-widest uppercase">Financial Allocation Overview</p>
-                        </div>
 
-                        {budgetSaved ? (
-                            <div className="space-y-6">
-                                {/* Budget Overview Card */}
-                                <div className="dash-glass rounded-3xl p-6 md:p-8 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500 to-emerald-500/0 opacity-50"></div>
-                                    
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 border-b border-white/5">
-                                        <h2 className="text-xl font-bold text-gray-200 flex items-center gap-3">
-                                            <Wallet className="text-emerald-400" size={24} />
-                                            Active Budget Plan
-                                        </h2>
-                                        <div className="text-right mt-2 md:mt-0">
-                                            <p className="text-xs font-mono tracking-widest uppercase text-gray-400">Monthly Income</p>
-                                            <p className="text-2xl font-bold text-emerald-400 font-mono">₹{Number(budgetSaved.income).toLocaleString()}</p>
+                            {activeLedgers.length > 1 && (
+                                <Card>
+                                    <CardHeader title={`Combined Total — ${activeLedgers.length} Ledgers`} icon={<Filter size={16} />} />
+                                    <CardBody>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <div className="text-center">
+                                                <p className="text-xs text-[var(--text-muted)] mb-1">Total Income</p>
+                                                <p className="text-xl font-bold text-accent">₹{ledgerFilterIncome.toLocaleString()}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-xs text-[var(--text-muted)] mb-1">Total Expense</p>
+                                                <p className="text-xl font-bold text-danger">₹{ledgerFilterExpense.toLocaleString()}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-xs text-[var(--text-muted)] mb-1">Net Balance</p>
+                                                <p className={`text-xl font-bold ${ledgerFilterIncome - ledgerFilterExpense >= 0 ? 'text-primary' : 'text-danger'}`}>
+                                                    ₹{(ledgerFilterIncome - ledgerFilterExpense).toLocaleString()}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </CardBody>
+                                </Card>
+                            )}
+                        </>
+                    )}
+                </motion.div>
+            )}
 
-                                    {/* Ledgers Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+            {/* ===================== BUDGET VIEW TAB ===================== */}
+            {activeTab === "budget-view" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+                    <div className="text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-accent/10 text-accent">
+                            <Eye size={28} />
+                        </div>
+                        <h2 className="text-lg font-semibold text-[var(--text)]">Budget Analysis</h2>
+                        <p className="text-sm text-[var(--text-muted)]">Financial allocation overview for your active budget plan.</p>
+                    </div>
+
+                    {budgetSaved ? (
+                        <>
+                            <Card>
+                                <CardHeader
+                                    title="Active Budget Plan"
+                                    icon={<Wallet size={16} />}
+                                    action={
+                                        <div className="text-right">
+                                            <p className="text-xs text-[var(--text-muted)]">Monthly Income</p>
+                                            <p className="text-lg font-bold text-accent">₹{Number(budgetSaved.income).toLocaleString()}</p>
+                                        </div>
+                                    }
+                                />
+                                <CardBody className="flex flex-col gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                         {budgetSaved.ledgers.map((ledger, i) => {
                                             const savedAmount = ledger.amount || ((Number(budgetSaved.income) * Number(ledger.percent)) / 100);
-                                            const color = NEON_COLORS[i % NEON_COLORS.length];
-                                            
+                                            const color = CHART_COLORS[i % CHART_COLORS.length];
                                             return (
-                                                <div key={i} className="dash-glass rounded-xl p-4 border border-white/10 hover:border-emerald-500/30 transition-all group">
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <h3 className="text-[#3D52A0] font-medium text-sm truncate group-hover:text-emerald-400 transition-colors">{ledger.name}</h3>
-                                                        <span className="text-emerald-400 font-mono text-xs shrink-0 ml-2 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-                                                            {ledger.percent}%
-                                                        </span>
+                                                <Card key={i} className="p-4">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <h4 className="text-sm font-medium text-[var(--text)] truncate">{ledger.name}</h4>
+                                                        <Badge variant="success">{ledger.percent}%</Badge>
                                                     </div>
-                                                    
-                                                    <div className="mb-3">
-                                                        <div className="text-2xl font-bold text-emerald-300 font-mono mb-1">
-                                                            ₹{savedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                        </div>
-                                                        <div className="text-xs text-gray-400 font-mono">
-                                                            per month
-                                                        </div>
+                                                    <div className="text-xl font-bold text-[var(--text)] mb-1">
+                                                        ₹{savedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                                     </div>
-                                                    
-                                                    <div className="space-y-2">
-                                                        <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                                                            <div 
-                                                                className="h-full rounded-full transition-all duration-500" 
-                                                                style={{ 
-                                                                    width: `${Math.min(ledger.percent, 100)}%`,
-                                                                    background: `linear-gradient(90deg, ${color}, ${color}80)`
-                                                                }} 
-                                                            />
-                                                        </div>
-                                                        <div className="flex justify-between text-xs font-mono text-gray-500">
-                                                            <span>Daily: ₹{(savedAmount / 30).toFixed(0)}</span>
-                                                            <span>Weekly: ₹{(savedAmount / 4.33).toFixed(0)}</span>
-                                                        </div>
+                                                    <div className="text-xs text-[var(--text-muted)] mb-3">per month</div>
+                                                    <div className="h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden mb-2">
+                                                        <div
+                                                            className="h-full rounded-full transition-all duration-500"
+                                                            style={{ width: `${Math.min(ledger.percent, 100)}%`, background: color }}
+                                                        />
                                                     </div>
-                                                </div>
+                                                    <div className="flex justify-between text-xs text-[var(--text-muted)]">
+                                                        <span>Daily: ₹{(savedAmount / 30).toFixed(0)}</span>
+                                                        <span>Weekly: ₹{(savedAmount / 4.33).toFixed(0)}</span>
+                                                    </div>
+                                                </Card>
                                             );
                                         })}
                                     </div>
 
-                                    {/* Budget Summary */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {(() => {
-                                            const totalPercent = budgetSaved.ledgers.reduce((s, l) => s + Number(l.percent), 0);
-                                            const totalAllocated = budgetSaved.ledgers.reduce((s, l) => s + (Number(l.amount) || ((Number(budgetSaved.income) * Number(l.percent)) / 100)), 0);
-                                            const remaining = Number(budgetSaved.income) - totalAllocated;
-                                            
-                                            return (
-                                                <>
-                                                    <div className="dash-glass rounded-xl p-4 border-l-4 border-l-emerald-500">
-                                                        <p className="text-xs font-mono tracking-widest uppercase text-emerald-400/70 mb-1">Total Allocated</p>
-                                                        <p className="text-xl font-bold text-emerald-400 font-mono">₹{totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                                                        <p className="text-xs text-gray-400 font-mono mt-1">{totalPercent.toFixed(1)}% of income</p>
-                                                    </div>
-                                                    
-                                                    <div className={`dash-glass rounded-xl p-4 border-l-4 ${remaining >= 0 ? 'border-l-cyan-500' : 'border-l-rose-500'}`}>
-                                                        <p className="text-xs font-mono tracking-widest uppercase text-gray-400 mb-1">Remaining</p>
-                                                        <p className={`text-xl font-bold font-mono ${remaining >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
-                                                            ₹{Math.abs(remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                        </p>
-                                                        <p className="text-xs text-gray-400 font-mono mt-1">
-                                                            {remaining >= 0 ? 'Available' : 'Over budget'}
-                                                        </p>
-                                                    </div>
-                                                    
-                                                    <div className="dash-glass rounded-xl p-4 border-l-4 border-l-amber-500">
-                                                        <p className="text-xs font-mono tracking-widest uppercase text-amber-400/70 mb-1">Ledgers Count</p>
-                                                        <p className="text-xl font-bold text-amber-400 font-mono">{budgetSaved.ledgers.length}</p>
-                                                        <p className="text-xs text-gray-400 font-mono mt-1">Active categories</p>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
+                                    {(() => {
+                                        const totalPercent = budgetSaved.ledgers.reduce((s, l) => s + Number(l.percent), 0);
+                                        const totalAllocated = budgetSaved.ledgers.reduce((s, l) => s + (Number(l.amount) || ((Number(budgetSaved.income) * Number(l.percent)) / 100)), 0);
+                                        const remaining = Number(budgetSaved.income) - totalAllocated;
+                                        return (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <KpiCard icon={<Wallet size={18} />} label="Total Allocated" value={`₹${totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone="accent" footer={<span className="text-xs text-[var(--text-muted)]">{totalPercent.toFixed(1)}% of income</span>} />
+                                                <KpiCard icon={<Percent size={18} />} label="Remaining" value={`₹${Math.abs(remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone={remaining >= 0 ? 'primary' : 'danger'} footer={<span className="text-xs text-[var(--text-muted)]">{remaining >= 0 ? 'Available' : 'Over budget'}</span>} />
+                                                <KpiCard icon={<RefreshCw size={18} />} label="Ledgers" value={budgetSaved.ledgers.length} tone="warning" footer={<span className="text-xs text-[var(--text-muted)]">Active categories</span>} />
+                                            </div>
+                                        );
+                                    })()}
+                                </CardBody>
+                            </Card>
 
-                                {/* Budget Breakdown Chart */}
-                                <div className="dash-glass rounded-2xl p-6 relative overflow-hidden">
-                                    <h3 className="text-xl font-bold text-gray-200 mb-6 flex items-center gap-2">
-                                        <PieChartIcon size={20} className="text-emerald-400" />
-                                        Budget Allocation Breakdown
-                                    </h3>
-                                    
+                            <Card>
+                                <CardHeader title="Budget Allocation Breakdown" icon={<PieChartIcon size={16} />} />
+                                <CardBody>
                                     {(() => {
                                         const chartData = {
                                             series: budgetSaved.ledgers.map(l => l.amount || ((Number(budgetSaved.income) * Number(l.percent)) / 100)),
                                             options: {
-                                                chart: { type: 'donut', background: 'transparent', foreColor: '#94a3b8' },
+                                                chart: { type: 'donut', background: 'transparent', foreColor: '#64748b' },
                                                 labels: budgetSaved.ledgers.map(l => l.name),
-                                                colors: NEON_COLORS,
-                                                stroke: { show: false },
+                                                colors: CHART_COLORS,
+                                                stroke: { show: true, colors: ['#ffffff'], width: 2 },
                                                 dataLabels: { enabled: false },
-                                                legend: {
-                                                    position: 'bottom',
-                                                    fontFamily: 'monospace',
-                                                    labels: { colors: '#94a3b8' }
-                                                },
+                                                legend: { position: 'bottom', labels: { colors: '#64748b' } },
                                                 plotOptions: {
                                                     pie: {
                                                         donut: {
@@ -1407,291 +1174,192 @@ export default function MoneyPage() {
                                                             background: 'transparent',
                                                             labels: {
                                                                 show: true,
-                                                                name: { show: true, fontSize: '12px', fontFamily: 'monospace', color: '#64748b' },
-                                                                value: {
-                                                                    show: true,
-                                                                    fontSize: '20px',
-                                                                    fontFamily: 'monospace',
-                                                                    fontWeight: 'bold',
-                                                                    color: '#1e293b',
-                                                                    formatter: (val) => `₹${Number(val).toLocaleString()}`
-                                                                },
-                                                                total: {
-                                                                    show: true,
-                                                                    label: 'BUDGET',
-                                                                    fontFamily: 'monospace',
-                                                                    color: '#64748b',
-                                                                    formatter: () => `₹${Number(budgetSaved.income).toLocaleString()}`
-                                                                }
+                                                                name: { show: true, fontSize: '12px', color: '#64748b' },
+                                                                value: { show: true, fontSize: '20px', fontWeight: 'bold', color: '#0f172a', formatter: (val) => `₹${Number(val).toLocaleString()}` },
+                                                                total: { show: true, label: 'BUDGET', color: '#64748b', formatter: () => `₹${Number(budgetSaved.income).toLocaleString()}` }
                                                             }
                                                         }
                                                     }
                                                 },
-                                                tooltip: {
-                                                    theme: 'dark',
-                                                    y: { formatter: (val) => `₹${val.toLocaleString()}` }
-                                                }
+                                                tooltip: { theme: 'light', y: { formatter: (val) => `₹${val.toLocaleString()}` } }
                                             }
                                         };
-                                        
                                         return (
-                                            <div className="h-[400px] w-full">
-                                                <Chart
-                                                    options={chartData.options}
-                                                    series={chartData.series}
-                                                    type="donut"
-                                                    height="100%"
-                                                />
+                                            <div className="h-[360px] w-full">
+                                                <Chart options={chartData.options} series={chartData.series} type="donut" height="100%" />
                                             </div>
                                         );
                                     })()}
-                                </div>
+                                </CardBody>
+                            </Card>
 
-                                {/* Quick Actions */}
-                                <div className="dash-glass rounded-2xl p-6">
-                                    <h3 className="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
-                                        <Plus size={18} className="text-emerald-400" />
-                                        Quick Actions
-                                    </h3>
+                            <Card>
+                                <CardHeader title="Quick Actions" icon={<Plus size={16} />} />
+                                <CardBody>
                                     <div className="flex flex-wrap gap-3">
-                                        <button
-                                            onClick={startEditBudget}
-                                            className="px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-600/20 hover:from-emerald-500/30 hover:to-teal-600/30 text-emerald-400 rounded-xl text-xs font-semibold tracking-widest uppercase border border-emerald-500/30 transition-all"
-                                        >
-                                            Edit Budget Plan
-                                        </button>
-                                        <button
-                                            onClick={() => setActiveTab("transactions")}
-                                            className="px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 text-cyan-400 rounded-xl text-xs font-semibold tracking-widest uppercase border border-cyan-500/30 transition-all"
-                                        >
-                                            View Transactions
-                                        </button>
+                                        <Button variant="secondary" onClick={startEditBudget}>Edit Budget Plan</Button>
+                                        <Button variant="ghost" onClick={() => setActiveTab("transactions")}>View Transactions</Button>
                                     </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-20 dash-glass rounded-3xl">
-                                <div className="inline-flex items-center justify-center p-6 bg-gray-900/50 border border-white/5 rounded-3xl mb-6">
-                                    <Wallet className="text-gray-600" size={56} strokeWidth={1.5} />
-                                </div>
-                                <h3 className="text-2xl font-bold text-gray-300 mb-2">No Budget Plan Found</h3>
-                                <p className="text-gray-500 font-mono text-[10px] tracking-widest uppercase mb-8">Create a budget plan to view analysis</p>
-                                <button
-                                    onClick={() => setActiveTab("budget")}
-                                    className="px-8 py-4 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl font-semibold text-xs tracking-widest uppercase border border-emerald-500/50 transition-all"
-                                >
-                                    Create Budget Plan
-                                </button>
-                            </div>
-                        )}
-                    </motion.div>
-                )}
+                                </CardBody>
+                            </Card>
+                        </>
+                    ) : (
+                        <Card>
+                            <EmptyState
+                                icon={<Wallet size={20} />}
+                                title="No budget plan found"
+                                message="Create a budget plan to view analysis."
+                                action={<Button variant="primary" onClick={() => setActiveTab("budget")}>Create Budget Plan</Button>}
+                            />
+                        </Card>
+                    )}
+                </motion.div>
+            )}
 
-                {activeTab === "budget" && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-                        <div className="text-center mb-10">
-                            <div className="inline-flex items-center justify-center p-4 dash-glass rounded-2xl mb-4 text-amber-400 border border-amber-500/30 shadow-[0_0_20px_rgba(251,191,36,0.2)]">
-                                <Wallet size={42} strokeWidth={2} />
-                            </div>
-                            <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-white to-gray-400 mb-2 tracking-wide">Budget Plan</h1>
-                            <p className="text-amber-400/60 font-mono text-sm tracking-widest uppercase">Split Income Into Ledgers</p>
+            {/* ===================== BUDGET TAB ===================== */}
+            {activeTab === "budget" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+                    <div className="text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-warning/10 text-warning">
+                            <Wallet size={28} />
                         </div>
+                        <h2 className="text-lg font-semibold text-[var(--text)]">Budget Plan</h2>
+                        <p className="text-sm text-[var(--text-muted)]">Split your income into ledgers.</p>
+                    </div>
 
-                        {budgetDraft && (
-                            <div className="dash-glass rounded-2xl p-4 mb-6 border border-slate-500/30 flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-mono tracking-widest uppercase bg-slate-500/20 border border-slate-500/40 text-slate-300">Draft</span>
-                                    <span className="text-sm text-slate-300">
-                                        Income: <span className="text-amber-400 font-mono font-bold">₹{Number(budgetDraft.income || 0).toLocaleString()}</span>
-                                        <span className="text-slate-500 mx-2">·</span>
-                                        {budgetDraft.ledgers?.filter(l => l.name).length || 0} ledger{(budgetDraft.ledgers?.filter(l => l.name).length || 0) !== 1 ? 's' : ''}
-                                    </span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={loadBudgetDraft}
-                                        className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono tracking-widest uppercase hover:bg-amber-500/20 transition-all"
-                                    >
-                                        Load Draft
-                                    </button>
-                                    <button
-                                        onClick={clearBudgetDraft}
-                                        className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-mono tracking-widest uppercase hover:bg-rose-500/20 transition-all"
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
+                    {budgetDraft && (
+                        <Card className="p-4 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="neutral">Draft</Badge>
+                                <span className="text-sm text-[var(--text)]">
+                                    Income: <span className="font-semibold text-warning">₹{Number(budgetDraft.income || 0).toLocaleString()}</span>
+                                    <span className="text-[var(--text-muted)] mx-2">·</span>
+                                    {budgetDraft.ledgers?.filter(l => l.name).length || 0} ledger{(budgetDraft.ledgers?.filter(l => l.name).length || 0) !== 1 ? 's' : ''}
+                                </span>
                             </div>
-                        )}
+                            <div className="flex gap-2">
+                                <Button variant="secondary" size="sm" onClick={loadBudgetDraft}>Load Draft</Button>
+                                <Button variant="ghost" size="sm" onClick={clearBudgetDraft}>Clear</Button>
+                            </div>
+                        </Card>
+                    )}
 
-                        {budgetSaved && (
-                            <div className="dash-glass rounded-2xl p-6 mb-8">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-sm font-mono tracking-widest uppercase text-amber-400">Active Budget Plan</h3>
-                                    <span className="text-xs font-mono text-gray-400">Total Income: <span className="text-emerald-400 font-bold">₹{Number(budgetSaved.income).toLocaleString()}</span></span>
-                                </div>
+                    {budgetSaved && (
+                        <Card>
+                            <CardHeader
+                                title="Active Budget Plan"
+                                icon={<Wallet size={16} />}
+                                action={<span className="text-sm text-[var(--text-muted)]">Total Income: <span className="font-semibold text-accent">₹{Number(budgetSaved.income).toLocaleString()}</span></span>}
+                            />
+                            <CardBody className="flex flex-col gap-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {budgetSaved.ledgers.map((l, i) => {
                                         const savedAmount = l.amount || ((Number(budgetSaved.income) * Number(l.percent)) / 100);
                                         return (
-                                            <div key={i} className="dash-glass rounded-xl p-4 border border-amber-500/10">
+                                            <Card key={i} className="p-3.5">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-[#3D52A0] font-medium text-sm">{l.name}</span>
-                                                    <span className="text-amber-400 font-mono text-xs">{l.percent}%</span>
+                                                    <span className="text-sm font-medium text-[var(--text)]">{l.name}</span>
+                                                    <span className="text-xs text-warning font-medium">{l.percent}%</span>
                                                 </div>
-                                                <div className="text-2xl font-bold text-amber-300 font-mono">₹{savedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                                                <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                                    <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500" style={{ width: `${Math.min(l.percent, 100)}%` }} />
+                                                <div className="text-lg font-bold text-[var(--text)]">₹{savedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                                <div className="mt-2 h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden">
+                                                    <div className="h-full rounded-full bg-warning" style={{ width: `${Math.min(l.percent, 100)}%` }} />
                                                 </div>
-                                            </div>
+                                            </Card>
                                         );
                                     })}
                                 </div>
                                 {(() => {
                                     const total = budgetSaved.ledgers.reduce((s, l) => s + Number(l.percent), 0);
                                     return total !== 100
-                                        ? <p className="mt-3 text-xs font-mono text-rose-400">⚠ Ledgers sum to {total}% (should be 100%)</p>
-                                        : <p className="mt-3 text-xs font-mono text-emerald-400">✓ 100% allocated</p>;
+                                        ? <p className="text-xs text-danger flex items-center gap-1"><AlertCircle size={12} /> Ledgers sum to {total}% (should be 100%)</p>
+                                        : <p className="text-xs text-accent flex items-center gap-1"><CheckCircle2 size={12} /> 100% allocated</p>;
                                 })()}
-                            </div>
-                        )}
+                            </CardBody>
+                        </Card>
+                    )}
 
-                        <div className="dash-glass rounded-3xl p-6 md:p-8 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-amber-500/0 via-amber-500 to-amber-500/0 opacity-50"></div>
-                            <h2 className="text-xl font-bold text-gray-200 mb-6 flex items-center gap-3 pb-4 border-b border-white/5">
-                                <Percent className="text-amber-400" size={22} />
-                                {budgetEditMode ? "Update Budget Plan" : budgetSaved ? "Update Budget Plan" : "Create Budget Plan"}
-                            </h2>
-                            <form onSubmit={saveBudgetPlan} className="space-y-6">
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Total Monthly Income (₹) *</label>
-                                    <input
-                                        type="number" min="0" step="0.01" placeholder="e.g. 50000"
-                                        className="dash-input w-full md:w-64 px-4 py-3 rounded-xl placeholder-gray-600"
-                                        value={budgetIncome}
-                                        onChange={(e) => updateIncome(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                                        <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400">Ledgers (must total 100%)</label>
+                    <Card>
+                        <CardHeader title={budgetEditMode || budgetSaved ? "Update Budget Plan" : "Create Budget Plan"} icon={<Percent size={16} />} />
+                        <CardBody>
+                            <form onSubmit={saveBudgetPlan} className="flex flex-col gap-6">
+                                <Input
+                                    label="Total Monthly Income (₹)"
+                                    required
+                                    type="number" min="0" step="0.01" placeholder="e.g. 50000"
+                                    className="md:w-64"
+                                    value={budgetIncome}
+                                    onChange={(e) => updateIncome(e.target.value)}
+                                />
+
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <label className="text-sm font-medium text-[var(--text)]">Ledgers (must total 100%)</label>
                                         <div className="flex gap-2 flex-wrap">
-                                            <button
-                                                type="button"
-                                                onClick={loadCategoriesIntoBudget}
-                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono tracking-widest uppercase hover:bg-cyan-500/20 transition-all"
-                                                title="Load transaction categories as ledgers"
-                                            >
-                                                <RefreshCw size={12} /> Sync Categories
-                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setBudgetLedgers(l => [...l, { name: "", percent: "", amount: "" }])}
-                                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono tracking-widest uppercase hover:bg-amber-500/20 transition-all"
-                                                            >
-                                                                <Plus size={12} /> Add Ledger
-                                                            </button>
+                                            <Button type="button" variant="secondary" size="sm" icon={<RefreshCw size={12} />} onClick={loadCategoriesIntoBudget}>Sync Categories</Button>
+                                            <Button type="button" variant="secondary" size="sm" icon={<Plus size={12} />} onClick={() => setBudgetLedgers(l => [...l, { name: "", percent: "", amount: "" }])}>Add Ledger</Button>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        {/* Desktop header */}
-                                        <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-mono tracking-widest uppercase text-gray-500 px-1 mb-3">
-                                            <div className="col-span-6">Ledger Name</div>
-                                            <div className="col-span-3 text-center">Amount (₹)</div>
-                                            <div className="col-span-2 text-center">Percent</div>
-                                            <div className="col-span-1"></div>
-                                        </div>
+
+                                    <div className="flex flex-col gap-3">
                                         {budgetLedgers.map((l, i) => (
-                                            <div key={i} className="flex flex-col md:grid md:grid-cols-12 gap-2 md:items-center p-3 md:p-0 rounded-xl md:rounded-none bg-white/[0.02] md:bg-transparent border border-white/5 md:border-0">
-                                                {/* Mobile label */}
-                                                <div className="flex items-center justify-between md:hidden mb-1">
-                                                    <span className="text-[10px] font-mono tracking-widest uppercase text-gray-500">Ledger {i + 1}</span>
-                                                    {budgetLedgers.length > 1 && (
-                                                        <button type="button" onClick={() => setBudgetLedgers(ls => ls.filter((_, j) => j !== i))}
-                                                            className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all"
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <div className="col-span-6 relative">
-                                                    <input
-                                                        type="text" placeholder="Ledger name (e.g. Savings)"
-                                                        className="dash-input w-full px-4 py-2.5 rounded-xl placeholder-gray-600 text-sm"
+                                            <div key={i} className="flex flex-col sm:flex-row gap-2 sm:items-end p-3 rounded-xl bg-[var(--surface-hover)] sm:bg-transparent sm:p-0">
+                                                <div className="flex-1">
+                                                    <Input
+                                                        label={i === 0 ? "Ledger Name" : undefined}
+                                                        placeholder="e.g. Savings"
                                                         value={l.name}
                                                         onChange={(e) => setBudgetLedgers(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
                                                         list={`categories-${i}`}
                                                     />
                                                     <datalist id={`categories-${i}`}>
-                                                        {categories.map(cat => (
-                                                            <option key={cat} value={cat} />
-                                                        ))}
+                                                        {categories.map(cat => <option key={cat} value={cat} />)}
                                                     </datalist>
                                                 </div>
-                                                <div className="flex gap-2 md:contents">
-                                                    <div className="col-span-3 relative flex-1">
-                                                        <label className="md:hidden text-[10px] font-mono tracking-widest uppercase text-gray-500 mb-1 block">Amount</label>
-                                                        <input
-                                                            type="number" min="0" step="1" placeholder="Amount"
-                                                            className="dash-input w-full px-4 py-2.5 rounded-xl placeholder-gray-600 text-sm pr-8"
-                                                            value={l.amount}
-                                                            onChange={(e) => updateLedgerAmount(i, e.target.value)}
-                                                        />
-                                                        <span className="absolute right-3 bottom-2.5 text-gray-500 text-xs">₹</span>
-                                                    </div>
-                                                    <div className="col-span-2 relative flex-1">
-                                                        <label className="md:hidden text-[10px] font-mono tracking-widest uppercase text-gray-500 mb-1 block">Percent</label>
-                                                        <input
-                                                            type="number" min="0" max="100" step="0.1" placeholder="%"
-                                                            className="dash-input w-full px-3 py-2.5 rounded-xl placeholder-gray-600 text-sm pr-6"
-                                                            value={l.percent}
-                                                            onChange={(e) => updateLedgerPercent(i, e.target.value)}
-                                                        />
-                                                        <span className="absolute right-2 bottom-2.5 text-gray-500 text-xs">%</span>
-                                                    </div>
+                                                <div className="w-full sm:w-36">
+                                                    <Input
+                                                        label={i === 0 ? "Amount (₹)" : undefined}
+                                                        type="number" min="0" step="1" placeholder="Amount"
+                                                        value={l.amount}
+                                                        onChange={(e) => updateLedgerAmount(i, e.target.value)}
+                                                    />
                                                 </div>
-                                                {/* Desktop delete */}
-                                                <div className="col-span-1 hidden md:flex justify-center">
-                                                    {budgetLedgers.length > 1 && (
-                                                        <button type="button" onClick={() => setBudgetLedgers(ls => ls.filter((_, j) => j !== i))}
-                                                            className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
-                                                    )}
+                                                <div className="w-full sm:w-28">
+                                                    <Input
+                                                        label={i === 0 ? "Percent" : undefined}
+                                                        type="number" min="0" max="100" step="0.1" placeholder="%"
+                                                        value={l.percent}
+                                                        onChange={(e) => updateLedgerPercent(i, e.target.value)}
+                                                    />
                                                 </div>
+                                                {budgetLedgers.length > 1 && (
+                                                    <IconButton label="Remove ledger" variant="danger" onClick={() => setBudgetLedgers(ls => ls.filter((_, j) => j !== i))}>
+                                                        <X size={14} />
+                                                    </IconButton>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
+
                                     {budgetLedgers.some(l => l.percent || l.amount) && (() => {
                                         const totalPercent = budgetLedgers.reduce((s, l) => s + (Number(l.percent) || 0), 0);
                                         const totalAmount = budgetLedgers.reduce((s, l) => s + (Number(l.amount) || 0), 0);
                                         const income = Number(budgetIncome) || 0;
-                                        
                                         return (
-                                            <div className="mt-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                                                <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                                            <div className="p-3 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)]">
+                                                <div className="grid grid-cols-2 gap-4 text-xs">
                                                     <div>
-                                                        <span className="text-gray-400">Total Allocated: </span>
-                                                        <span className={totalAmount === income ? 'text-emerald-400' : totalAmount > income ? 'text-rose-400' : 'text-amber-400'}>
-                                                            ₹{totalAmount.toLocaleString()}
-                                                        </span>
-                                                        {income > 0 && (
-                                                            <span className="text-gray-500 ml-2">
-                                                                ({totalAmount > 0 ? ((totalAmount / income) * 100).toFixed(1) : '0'}%)
-                                                            </span>
-                                                        )}
+                                                        <span className="text-[var(--text-muted)]">Total Allocated: </span>
+                                                        <span className={totalAmount === income ? 'text-accent' : totalAmount > income ? 'text-danger' : 'text-warning'}>₹{totalAmount.toLocaleString()}</span>
+                                                        {income > 0 && <span className="text-[var(--text-muted)] ml-2">({totalAmount > 0 ? ((totalAmount / income) * 100).toFixed(1) : '0'}%)</span>}
                                                     </div>
                                                     <div className="text-right">
-                                                        <span className="text-gray-400">Remaining: </span>
-                                                        <span className={income - totalAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                                                            ₹{(income - totalAmount).toLocaleString()}
-                                                        </span>
+                                                        <span className="text-[var(--text-muted)]">Remaining: </span>
+                                                        <span className={income - totalAmount >= 0 ? 'text-accent' : 'text-danger'}>₹{(income - totalAmount).toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                                 {totalPercent !== 100 && (
-                                                    <p className={`mt-2 text-xs font-mono ${totalPercent === 100 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                    <p className={`mt-2 text-xs ${totalPercent === 100 ? 'text-accent' : 'text-warning'}`}>
                                                         Percentage Total: {totalPercent.toFixed(1)}% {totalPercent === 100 ? '✓' : `(${100 - totalPercent > 0 ? `${(100 - totalPercent).toFixed(1)}% remaining` : `${(totalPercent - 100).toFixed(1)}% over`})`}
                                                     </p>
                                                 )}
@@ -1699,475 +1367,317 @@ export default function MoneyPage() {
                                         );
                                     })()}
                                 </div>
-                                <div className="flex flex-wrap gap-3 items-center">
-                                    <button
-                                        type="submit" disabled={budgetLoading}
-                                        className="px-8 py-3 bg-gradient-to-r from-amber-500/80 to-orange-600/80 hover:from-amber-500 hover:to-orange-600 text-white rounded-xl text-xs font-semibold tracking-widest uppercase border border-amber-500/50 transition-all disabled:opacity-50"
-                                    >
-                                        {budgetLoading ? "Saving..." : budgetEditMode ? "Update Budget Plan" : "Save Budget Plan"}
-                                    </button>
-                                    {budgetEditMode && (
-                                        <button
-                                            type="button"
-                                            onClick={cancelEditBudget}
-                                            className="px-6 py-3 bg-gray-700/60 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold tracking-widest uppercase border border-gray-500/40 transition-all"
-                                        >
-                                            Cancel Edit
-                                        </button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={saveBudgetDraft}
-                                        className="px-6 py-3 bg-slate-700/60 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold tracking-widest uppercase border border-slate-500/40 transition-all"
-                                    >
-                                        Save as Draft
-                                    </button>
+
+                                <div className="flex flex-wrap gap-3">
+                                    <Button type="submit" variant="primary" loading={budgetLoading}>{budgetEditMode ? "Update Budget Plan" : "Save Budget Plan"}</Button>
+                                    {budgetEditMode && <Button type="button" variant="secondary" onClick={cancelEditBudget}>Cancel Edit</Button>}
+                                    <Button type="button" variant="ghost" onClick={saveBudgetDraft}>Save as Draft</Button>
                                 </div>
                             </form>
-                        </div>
-                    </motion.div>
-                )}
+                        </CardBody>
+                    </Card>
+                </motion.div>
+            )}
 
-                {activeTab === "shopping" && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-                        {/* Header */}
-                        <div className="text-center mb-10 relative">
-                            <div className="inline-flex items-center justify-center p-4 dash-glass rounded-2xl mb-4 text-violet-400 border border-violet-500/30 shadow-[0_0_20px_rgba(139,92,246,0.2)]">
-                                <ShoppingCart size={42} strokeWidth={2} />
-                            </div>
-                            <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-white to-gray-400 mb-2 tracking-wide">Shopping Plan</h1>
-                            <p className="text-violet-400/60 font-mono text-sm tracking-widest uppercase">Plan Before You Spend</p>
+            {/* ===================== SHOPPING TAB ===================== */}
+            {activeTab === "shopping" && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+                    <div className="text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-secondary/10 text-secondary">
+                            <ShoppingCart size={28} />
                         </div>
+                        <h2 className="text-lg font-semibold text-[var(--text)]">Shopping Plan</h2>
+                        <p className="text-sm text-[var(--text-muted)]">Plan before you spend.</p>
+                    </div>
 
-                        {/* Add Form */}
-                        <div className="dash-glass rounded-3xl p-6 md:p-8 mb-6 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-violet-500/0 via-violet-500 to-violet-500/0 opacity-50"></div>
-                            <h2 className="text-xl font-bold text-gray-200 mb-6 flex items-center gap-3 pb-4 border-b border-white/5">
-                                <ShoppingCart className="text-violet-400" size={22} />
-                                Add Shopping Item
-                            </h2>
+                    <Card>
+                        <CardHeader title="Add Shopping Item" icon={<ShoppingCart size={16} />} />
+                        <CardBody>
                             <form onSubmit={addShoppingItem} className="grid gap-4 md:grid-cols-3">
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Item Name *</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Groceries, Shoes"
-                                        className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600"
-                                        value={shopForm.name}
-                                        onChange={(e) => setShopForm({ ...shopForm, name: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Est. Amount (₹) *</label>
-                                    <input
-                                        type="number" min="0" step="0.01" placeholder="0.00"
-                                        className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600"
-                                        value={shopForm.amount}
-                                        onChange={(e) => setShopForm({ ...shopForm, amount: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Priority</label>
-                                    <select
-                                        className="dash-input w-full px-4 py-3 rounded-xl appearance-none"
-                                        value={shopForm.priority}
-                                        onChange={(e) => setShopForm({ ...shopForm, priority: e.target.value })}
-                                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.5em 1.5em' }}
-                                    >
-                                        <option value="high" className="bg-gray-900">🔴 High</option>
-                                        <option value="medium" className="bg-gray-900">🟡 Medium</option>
-                                        <option value="low" className="bg-gray-900">⚪ Low</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Quantity</label>
-                                    <input
-                                        type="number" min="0" step="0.01" placeholder="e.g. 2"
-                                        className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600"
-                                        value={shopForm.quantity}
-                                        onChange={(e) => setShopForm({ ...shopForm, quantity: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Unit</label>
-                                    <select
-                                        className="dash-input w-full px-4 py-3 rounded-xl appearance-none"
-                                        value={shopForm.unit}
-                                        onChange={(e) => setShopForm({ ...shopForm, unit: e.target.value })}
-                                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.5em 1.5em' }}
-                                    >
-                                        {UNITS.map(u => <option key={u} value={u} className="bg-gray-900">{u}</option>)}
-                                    </select>
-                                </div>
+                                <Input label="Item Name" required placeholder="e.g. Groceries, Shoes" value={shopForm.name} onChange={(e) => setShopForm({ ...shopForm, name: e.target.value })} />
+                                <Input label="Est. Amount (₹)" required type="number" min="0" step="0.01" placeholder="0.00" value={shopForm.amount} onChange={(e) => setShopForm({ ...shopForm, amount: e.target.value })} />
+                                <Select label="Priority" value={shopForm.priority} onChange={(e) => setShopForm({ ...shopForm, priority: e.target.value })}>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </Select>
+                                <Input label="Quantity" type="number" min="0" step="0.01" placeholder="e.g. 2" value={shopForm.quantity} onChange={(e) => setShopForm({ ...shopForm, quantity: e.target.value })} />
+                                <Select label="Unit" value={shopForm.unit} onChange={(e) => setShopForm({ ...shopForm, unit: e.target.value })}>
+                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                </Select>
                                 <div className="md:col-span-3">
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Item Image</label>
-                                    <CloudinaryUpload
-                                        label="Upload Image"
-                                        currentUrl={shopForm.image_url}
-                                        onUpload={(url) => setShopForm(f => ({ ...f, image_url: url }))}
-                                    />
+                                    <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">Item Image</label>
+                                    <CloudinaryUpload label="Upload Image" currentUrl={shopForm.image_url} onUpload={(url) => setShopForm(f => ({ ...f, image_url: url }))} />
                                 </div>
                                 <div className="flex items-end md:col-start-3">
-                                    <button type="submit" disabled={shopLoading}
-                                        className="w-full py-3 bg-gradient-to-r from-violet-500/80 to-purple-600/80 hover:from-violet-500 hover:to-purple-600 text-white rounded-xl text-xs font-semibold tracking-widest uppercase border border-violet-500/50 transition-all disabled:opacity-50"
-                                    >
-                                        <span className="flex items-center justify-center gap-2"><Plus size={14} /> Add to Plan</span>
-                                    </button>
+                                    <Button type="submit" variant="primary" className="w-full" loading={shopLoading} icon={<Plus size={14} />}>Add to Plan</Button>
                                 </div>
                             </form>
-                        </div>
+                        </CardBody>
+                    </Card>
 
-                        {/* Search + Total bar */}
-                        <div className="dash-glass rounded-2xl px-6 py-4 mb-4 flex flex-col md:flex-row md:items-center gap-3">
-                            <div className="relative flex-1">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Search items..."
-                                    className="dash-input w-full pl-9 pr-4 py-2 rounded-xl text-sm placeholder-gray-600"
-                                    value={shopSearch}
-                                    onChange={(e) => setShopSearch(e.target.value)}
-                                />
-                            </div>
-                            {shoppingPlans.length > 0 && (
-                                <div className="flex items-center justify-between md:justify-end gap-4 shrink-0">
-                                    <span className="text-xs font-mono tracking-widest uppercase text-gray-400">{shoppingPlans.length} item{shoppingPlans.length !== 1 ? 's' : ''}</span>
-                                    <span className="font-mono font-bold text-violet-300 text-lg">
-                                        Total ₹{shoppingPlans.reduce((s, i) => s + Number(i.amount), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
+                    <Card>
+                        <CardHeader
+                            title="Shopping List"
+                            icon={<ShoppingCart size={16} />}
+                            action={
+                                <div className="flex items-center gap-4">
+                                    <div className="w-56 hidden sm:block">
+                                        <Input leadingIcon={<Search size={14} />} placeholder="Search items..." value={shopSearch} onChange={(e) => setShopSearch(e.target.value)} />
+                                    </div>
+                                    {shoppingPlans.length > 0 && (
+                                        <span className="font-semibold text-secondary text-sm whitespace-nowrap">
+                                            Total ₹{shoppingPlans.reduce((s, i) => s + Number(i.amount), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    )}
                                 </div>
+                            }
+                        />
+                        <CardBody>
+                            <div className="sm:hidden mb-4">
+                                <Input leadingIcon={<Search size={14} />} placeholder="Search items..." value={shopSearch} onChange={(e) => setShopSearch(e.target.value)} />
+                            </div>
+                            <Table
+                                columns={shopColumns}
+                                data={visibleShopItems}
+                                rowKey={(item) => item.id}
+                                pageSize={10}
+                                emptyState={<EmptyState icon={<ShoppingCart size={20} />} title="No items in shopping plan" message="Add an item above to start planning your purchases." />}
+                            />
+                        </CardBody>
+                    </Card>
+
+                    {completedPlans.length > 0 && (
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => setShowCompleted(v => !v)}
+                                className="flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors w-fit"
+                            >
+                                <CheckCircle2 size={14} className="text-accent" />
+                                {showCompleted ? 'Hide' : 'Show'} Completed ({completedPlans.length})
+                            </button>
+                            {showCompleted && (
+                                <Card className="opacity-80">
+                                    <CardBody className="flex flex-col divide-y divide-[var(--border)]">
+                                        {completedPlans.map((item) => (
+                                            <div key={item.id} className="py-3 flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-3">
+                                                    <CheckCircle2 size={15} className="text-accent shrink-0" />
+                                                    <span className="text-[var(--text-muted)] line-through">{item.name}</span>
+                                                </div>
+                                                <span className="font-medium text-[var(--text-muted)] line-through">
+                                                    ₹{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </CardBody>
+                                </Card>
                             )}
                         </div>
+                    )}
+                </motion.div>
+            )}
 
-                        {shoppingPlans.length === 0 ? (
-                            <div className="text-center py-16 dash-glass rounded-3xl">
-                                <ShoppingCart className="mx-auto text-gray-600 mb-4" size={48} strokeWidth={1.5} />
-                                <p className="text-gray-500 font-mono text-xs tracking-widest uppercase">No items in shopping plan</p>
-                            </div>
-                        ) : (
-                            <div className="dash-glass rounded-2xl overflow-hidden">
-                                <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/5 bg-gray-900/50 text-xs font-mono tracking-widest uppercase text-gray-400">
-                                    <div className="col-span-5">Item</div>
-                                    <div className="col-span-3 text-right">Est. Amount</div>
-                                    <div className="col-span-4 text-center">Actions</div>
-                                </div>
-                                <div className="divide-y divide-white/5">
-                                    {[...shoppingPlans]
-                                        .filter(i => i.name.toLowerCase().includes(shopSearch.toLowerCase()))
-                                        .sort((a, b) => PRIORITY_ORDER[a.priority || 'medium'] - PRIORITY_ORDER[b.priority || 'medium'])
-                                        .map((item) => (
-                                        <div key={item.id}>
-                                            {editingShopId === item.id ? (
-                                                <form onSubmit={saveEditShopItem} className="p-4 grid md:grid-cols-12 md:gap-4 md:items-center bg-violet-500/5">
-                                                    <div className="col-span-2 mb-2 md:mb-0">
-                                                        <input
-                                                            type="text"
-                                                            className="dash-input w-full px-3 py-2 rounded-lg text-sm"
-                                                            value={editShopForm.name}
-                                                            onChange={(e) => setEditShopForm({ ...editShopForm, name: e.target.value })}
-                                                            required autoFocus placeholder="Name"
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-2 mb-2 md:mb-0">
-                                                        <input
-                                                            type="number" min="0" step="0.01"
-                                                            className="dash-input w-full px-3 py-2 rounded-lg text-sm"
-                                                            value={editShopForm.amount}
-                                                            onChange={(e) => setEditShopForm({ ...editShopForm, amount: e.target.value })}
-                                                            required placeholder="₹"
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-1 mb-2 md:mb-0">
-                                                        <input
-                                                            type="number" min="0" step="0.01"
-                                                            className="dash-input w-full px-3 py-2 rounded-lg text-sm"
-                                                            value={editShopForm.quantity}
-                                                            onChange={(e) => setEditShopForm({ ...editShopForm, quantity: e.target.value })}
-                                                            placeholder="Qty"
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-1 mb-2 md:mb-0">
-                                                        <select
-                                                            className="dash-input w-full px-2 py-2 rounded-lg text-sm appearance-none"
-                                                            value={editShopForm.unit}
-                                                            onChange={(e) => setEditShopForm({ ...editShopForm, unit: e.target.value })}
-                                                        >
-                                                            {UNITS.map(u => <option key={u} value={u} className="bg-gray-900">{u}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div className="col-span-2 mb-2 md:mb-0">
-                                                        <select
-                                                            className="dash-input w-full px-3 py-2 rounded-lg text-sm appearance-none"
-                                                            value={editShopForm.priority}
-                                                            onChange={(e) => setEditShopForm({ ...editShopForm, priority: e.target.value })}
-                                                        >
-                                                            <option value="high" className="bg-gray-900">🔴 High</option>
-                                                            <option value="medium" className="bg-gray-900">🟡 Medium</option>
-                                                            <option value="low" className="bg-gray-900">⚪ Low</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="col-span-1 mb-2 md:mb-0">
-                                                        <CloudinaryUpload
-                                                            label="Img"
-                                                            currentUrl={editShopForm.image_url}
-                                                            onUpload={(url) => setEditShopForm(f => ({ ...f, image_url: url }))}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-3 flex gap-2 justify-center">
-                                                        <button type="submit" disabled={shopLoading}
-                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-500/20 text-violet-300 border border-violet-500/40 text-xs font-mono tracking-widest uppercase hover:bg-violet-500/30 transition-all disabled:opacity-50"
-                                                        >
-                                                            <CheckCircle2 size={12} /> Save
-                                                        </button>
-                                                        <button type="button" onClick={() => setEditingShopId(null)}
-                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-400 border border-white/10 text-xs font-mono tracking-widest uppercase hover:bg-gray-700 transition-all"
-                                                        >
-                                                            <X size={12} /> Cancel
-                                                        </button>
-                                                    </div>
-                                                </form>
-                                            ) : (
-                                                <div className="p-4 md:grid md:grid-cols-12 md:gap-4 md:items-center hover:bg-white/[0.02] transition-colors group">
-                                                    <div className="col-span-5 flex items-center gap-3 mb-2 md:mb-0">
-                                                        {item.image_url ? (
-                                                            <img
-                                                                src={item.image_url} alt={item.name}
-                                                                className="w-10 h-10 rounded-lg object-cover shrink-0 border border-violet-500/30 cursor-pointer hover:border-violet-400 hover:scale-105 transition-all"
-                                                                onClick={() => setLightboxImg(item.image_url)}
-                                                                onError={(e) => { e.target.style.display='none'; }}
-                                                            />
-                                                        ) : (
-                                                            <ShoppingCart size={16} className="text-violet-400 shrink-0" />
-                                                        )}
-                                                        <div>
-                                                            <span className="text-[#3D52A0] font-medium">{item.name}</span>
-                                                            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                                {(() => { const p = priorityConfig[item.priority || 'medium']; return (
-                                                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest uppercase border ${p.bg} ${p.border} ${p.color}`}>
-                                                                        {p.icon}{p.label}
-                                                                    </span>
-                                                                ); })()}
-                                                                {item.quantity && (
-                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest uppercase border bg-violet-500/10 border-violet-500/30 text-violet-300">
-                                                                        {item.quantity} {item.unit || 'nos'}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-span-3 text-right font-mono font-bold text-violet-300 mb-2 md:mb-0">
-                                                        ₹{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </div>
-                                                    <div className="col-span-4 flex gap-2 justify-center mt-3 md:mt-0">
-                                                        <button
-                                                            onClick={() => { setEditingShopId(item.id); setEditShopForm({ name: item.name, amount: item.amount, image_url: item.image_url || "", priority: item.priority || "medium", quantity: item.quantity || "", unit: item.unit || "nos" }); }}
-                                                            disabled={shopLoading}
-                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-xs font-mono tracking-widest uppercase hover:bg-cyan-500/20 transition-all disabled:opacity-50"
-                                                        >
-                                                            <Edit2 size={12} /> Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => completeShoppingItem(item)}
-                                                            disabled={shopLoading}
-                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-mono tracking-widest uppercase hover:bg-emerald-500/20 transition-all disabled:opacity-50"
-                                                        >
-                                                            <Check size={12} /> Done
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteShoppingItem(item.id)}
-                                                            disabled={shopLoading}
-                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/30 text-xs font-mono tracking-widest uppercase hover:bg-rose-500/20 transition-all disabled:opacity-50"
-                                                        >
-                                                            <Trash2 size={12} /> Remove
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Completed Items */}
-                        {completedPlans.length > 0 && (
-                            <div className="mt-6">
-                                <button
-                                    onClick={() => setShowCompleted(v => !v)}
-                                    className="flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-gray-400 hover:text-gray-200 transition-colors mb-3"
-                                >
-                                    <CheckCircle2 size={14} className="text-emerald-500" />
-                                    {showCompleted ? 'Hide' : 'Show'} Completed ({completedPlans.length})
-                                </button>
-                                {showCompleted && (
-                                    <div className="dash-glass rounded-2xl overflow-hidden opacity-70">
-                                        <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/5 bg-gray-900/50 text-xs font-mono tracking-widest uppercase text-gray-500">
-                                            <div className="col-span-7">Item</div>
-                                            <div className="col-span-5 text-right">Amount</div>
-                                        </div>
-                                        <div className="divide-y divide-white/5">
-                                            {completedPlans.map((item) => (
-                                                <div key={item.id} className="p-4 md:grid md:grid-cols-12 md:gap-4 md:items-center">
-                                                    <div className="col-span-7 flex items-center gap-3">
-                                                        <CheckCircle2 size={15} className="text-emerald-500/60 shrink-0" />
-                                                        <span className="text-gray-400 line-through">{item.name}</span>
-                                                    </div>
-                                                    <div className="col-span-5 text-right font-mono text-gray-500 line-through">
-                                                        ₹{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </div>
-
-            {/* Image Lightbox */}
-            {lightboxImg && (
-                <div
-                    className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-                    style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
-                    onClick={() => setLightboxImg(null)}
-                >
-                    <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-                        <button
-                            onClick={() => setLightboxImg(null)}
-                            className="absolute -top-3 -right-3 z-10 p-1.5 rounded-full bg-gray-900 border border-white/20 text-gray-400 hover:text-[#3D52A0] transition-colors"
+            {/* ===================== New / Edit Transaction Modal ===================== */}
+            <Modal
+                open={formOpen}
+                onClose={closeTransactionForm}
+                title={editingId ? "Update Transaction" : "New Transaction"}
+                size="md"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={closeTransactionForm}>Cancel</Button>
+                        <Button
+                            form="transaction-form"
+                            type="submit"
+                            variant="primary"
+                            loading={loading}
+                            disabled={!form.title.trim() || !form.amount}
+                            icon={editingId ? <Edit2 size={16} /> : <PlusCircle size={16} />}
                         >
-                            <X size={16} />
-                        </button>
-                        <img
-                            src={lightboxImg}
-                            alt="Product"
-                            className="w-full max-h-[80vh] object-contain rounded-2xl border border-violet-500/30 shadow-[0_0_40px_rgba(139,92,246,0.3)]"
+                            {editingId ? "Save Changes" : "Add Transaction"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id="transaction-form" onSubmit={createTransaction} className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                        <Input
+                            label="Title"
+                            required
+                            placeholder="e.g. Salary, Groceries, Rent"
+                            value={form.title}
+                            onChange={(e) => setForm({ ...form, title: e.target.value })}
                         />
                     </div>
-                </div>
-            )}
+                    <Input
+                        label="Amount (₹)"
+                        required
+                        type="number" step="0.01" min="0" placeholder="0.00"
+                        value={form.amount}
+                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    />
+                    <Select label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </Select>
 
-            {/* Scan Bill — Review & Confirm */}
-            {scanReview && (
-                <div
-                    className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-                    style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
-                    onClick={discardScanReview}
-                >
-                    <div
-                        className="relative max-w-md w-full dash-glass rounded-3xl p-6 md:p-8 overflow-y-auto"
-                        style={{ maxHeight: "90vh" }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-bold text-gray-200 flex items-center gap-2">
-                                <ScanLine className="text-indigo-400" size={20} />
-                                Review Scanned Bill
-                            </h2>
-                            <button onClick={discardScanReview} className="text-gray-500 hover:text-[#3D52A0] transition-colors">
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        {scanReview.previewUrl && (
-                            <img
-                                src={scanReview.previewUrl}
-                                alt="Scanned bill"
-                                className="w-full max-h-48 object-contain rounded-xl border border-indigo-500/20 mb-6 bg-black/20"
-                            />
+                    <div className="sm:col-span-2">
+                        <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">Category</label>
+                        {!showNewCategory ? (
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                                        <option value="">-- Select category --</option>
+                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </Select>
+                                </div>
+                                <IconButton label="New category" variant="accent" onClick={() => setShowNewCategory(true)}>
+                                    <Plus size={16} />
+                                </IconButton>
+                            </div>
+                        ) : (
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <Input
+                                        placeholder="New category name..."
+                                        value={newCategoryInput}
+                                        onChange={(e) => setNewCategoryInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory(newCategoryInput))}
+                                        autoFocus
+                                    />
+                                </div>
+                                <IconButton label="Confirm new category" variant="accent" onClick={() => addCategory(newCategoryInput)}>
+                                    <CheckCircle2 size={16} />
+                                </IconButton>
+                                <IconButton label="Cancel new category" onClick={() => { setShowNewCategory(false); setNewCategoryInput(""); }}>
+                                    <X size={16} />
+                                </IconButton>
+                            </div>
                         )}
+                    </div>
 
-                        <p className="text-[10px] font-mono tracking-widest uppercase text-indigo-400/70 mb-4">
-                            AI-extracted — please verify before saving
-                        </p>
+                    <div className="sm:col-span-2">
+                        <DateField
+                            label="Date"
+                            value={form.date}
+                            onChange={(e) => setForm({ ...form, date: e.target.value })}
+                        />
+                    </div>
+                </form>
+            </Modal>
 
-                        <div className="grid gap-4">
+            {/* ===================== Delete Transaction Confirm ===================== */}
+            <ConfirmDialog
+                open={!!deleteTxId}
+                onClose={() => setDeleteTxId(null)}
+                onConfirm={confirmDeleteTransaction}
+                title="Delete transaction"
+                message="Are you sure you want to delete this transaction? This cannot be undone."
+                confirmLabel="Delete"
+            />
+
+            {/* ===================== Edit Shopping Item Modal ===================== */}
+            <Modal
+                open={!!editingShopId}
+                onClose={() => setEditingShopId(null)}
+                title="Edit Shopping Item"
+                size="md"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setEditingShopId(null)}>Cancel</Button>
+                        <Button form="edit-shop-form" type="submit" variant="primary" loading={shopLoading} icon={<CheckCircle2 size={16} />}>Save Changes</Button>
+                    </>
+                }
+            >
+                <form id="edit-shop-form" onSubmit={saveEditShopItem} className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                        <Input label="Name" required autoFocus value={editShopForm.name} onChange={(e) => setEditShopForm({ ...editShopForm, name: e.target.value })} />
+                    </div>
+                    <Input label="Amount (₹)" required type="number" min="0" step="0.01" value={editShopForm.amount} onChange={(e) => setEditShopForm({ ...editShopForm, amount: e.target.value })} />
+                    <Select label="Priority" value={editShopForm.priority} onChange={(e) => setEditShopForm({ ...editShopForm, priority: e.target.value })}>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </Select>
+                    <Input label="Quantity" type="number" min="0" step="0.01" value={editShopForm.quantity} onChange={(e) => setEditShopForm({ ...editShopForm, quantity: e.target.value })} />
+                    <Select label="Unit" value={editShopForm.unit} onChange={(e) => setEditShopForm({ ...editShopForm, unit: e.target.value })}>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </Select>
+                    <div className="sm:col-span-2">
+                        <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">Image</label>
+                        <CloudinaryUpload label="Upload Image" currentUrl={editShopForm.image_url} onUpload={(url) => setEditShopForm(f => ({ ...f, image_url: url }))} />
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ===================== Scan Bill — Review & Confirm ===================== */}
+            <Modal
+                open={!!scanReview}
+                onClose={discardScanReview}
+                title="Review Scanned Bill"
+                size="md"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={discardScanReview}>Discard</Button>
+                        <Button
+                            variant="primary"
+                            onClick={confirmScanReview}
+                            loading={scanSaving}
+                            disabled={!scanReview?.title?.trim() || !scanReview?.amount}
+                            icon={<Check size={16} />}
+                        >
+                            Confirm &amp; Add
+                        </Button>
+                    </>
+                }
+            >
+                {scanReview && (
+                    <div className="flex flex-col gap-4">
+                        {scanReview.previewUrl && (
+                            <img src={scanReview.previewUrl} alt="Scanned bill" className="w-full max-h-48 object-contain rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]" />
+                        )}
+                        <p className="text-xs text-[var(--text-muted)]">AI-extracted — please verify before saving.</p>
+
+                        <Input label="Title" required value={scanReview.title} onChange={(e) => setScanReview(r => ({ ...r, title: e.target.value }))} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <Input label="Amount (₹)" required type="number" step="0.01" min="0" value={scanReview.amount} onChange={(e) => setScanReview(r => ({ ...r, amount: e.target.value }))} />
+                            <Select label="Type" value={scanReview.type} onChange={(e) => setScanReview(r => ({ ...r, type: e.target.value }))}>
+                                <option value="expense">Expense</option>
+                                <option value="income">Income</option>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Title *</label>
-                                <input
-                                    type="text"
-                                    className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600 focus:ring-1 focus:ring-emerald-500/50"
-                                    value={scanReview.title}
-                                    onChange={e => setScanReview(r => ({ ...r, title: e.target.value }))}
-                                />
+                                <Input label="Category" list="scan-category-list" placeholder="e.g. Food" value={scanReview.category} onChange={(e) => setScanReview(r => ({ ...r, category: e.target.value }))} />
+                                <datalist id="scan-category-list">
+                                    {categories.map(c => <option key={c} value={c} />)}
+                                </datalist>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Amount (₹) *</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        className="dash-input w-full px-4 py-3 rounded-xl focus:ring-1 focus:ring-emerald-500/50"
-                                        value={scanReview.amount}
-                                        onChange={e => setScanReview(r => ({ ...r, amount: e.target.value }))}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Type</label>
-                                    <select
-                                        className="dash-input w-full px-4 py-3 rounded-xl appearance-none focus:ring-1 focus:ring-emerald-500/50"
-                                        value={scanReview.type}
-                                        onChange={e => setScanReview(r => ({ ...r, type: e.target.value }))}
-                                    >
-                                        <option value="expense" className="bg-gray-900">Expense</option>
-                                        <option value="income" className="bg-gray-900">Income</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Category</label>
-                                    <input
-                                        type="text"
-                                        list="scan-category-list"
-                                        placeholder="e.g. Food"
-                                        className="dash-input w-full px-4 py-3 rounded-xl placeholder-gray-600 focus:ring-1 focus:ring-emerald-500/50"
-                                        value={scanReview.category}
-                                        onChange={e => setScanReview(r => ({ ...r, category: e.target.value }))}
-                                    />
-                                    <datalist id="scan-category-list">
-                                        {categories.map(c => <option key={c} value={c} />)}
-                                    </datalist>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-mono tracking-widest uppercase text-gray-400 mb-2 block">Date</label>
-                                    <input
-                                        type="date"
-                                        className="dash-input w-full px-4 py-3 rounded-xl focus:ring-1 focus:ring-emerald-500/50"
-                                        value={scanReview.date}
-                                        onChange={e => setScanReview(r => ({ ...r, date: e.target.value }))}
-                                    />
-                                </div>
-                            </div>
+                            <DateField label="Date" value={scanReview.date} onChange={(e) => setScanReview(r => ({ ...r, date: e.target.value }))} />
                         </div>
 
-                        {scanError && <p className="text-rose-400 text-xs font-mono mt-4">{scanError}</p>}
+                        {scanError && <p className="text-sm text-danger">{scanError}</p>}
+                    </div>
+                )}
+            </Modal>
 
-                        <div className="flex gap-4 mt-6 pt-6 border-t border-white/5">
-                            <button
-                                type="button"
-                                onClick={confirmScanReview}
-                                disabled={scanSaving || !scanReview.title.trim() || !scanReview.amount}
-                                className="flex-[2] py-3.5 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-semibold tracking-widest uppercase shadow-[0_0_15px_rgba(52,211,153,0.2)] disabled:opacity-50 transition-all border border-emerald-500/50"
-                            >
-                                {scanSaving ? "Saving..." : "Confirm & Add"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={discardScanReview}
-                                className="flex-1 px-8 py-3.5 bg-gray-900/50 hover:bg-gray-800 text-gray-400 border border-white/10 rounded-xl text-xs font-semibold tracking-widest uppercase transition-all"
-                            >
-                                Discard
-                            </button>
+            {/* ===================== Image Lightbox ===================== */}
+            {lightboxImg && (
+                <div
+                    className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-black/70"
+                    onClick={() => setLightboxImg(null)}
+                >
+                    <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute -top-12 right-0">
+                            <IconButton label="Close" className="bg-[var(--surface)] border border-[var(--border)]" onClick={() => setLightboxImg(null)}>
+                                <X size={20} />
+                            </IconButton>
                         </div>
+                        <img src={lightboxImg} alt="Item" className="w-full max-h-[80vh] object-contain rounded-2xl border border-[var(--border)]" />
                     </div>
                 </div>
             )}
-        </motion.div>
+        </div>
     );
 }

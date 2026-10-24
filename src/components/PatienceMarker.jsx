@@ -1,18 +1,34 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Plus, Trash2, Flame, Trophy, TrendingUp, Calendar, X, Info } from "lucide-react";
-import Navbar from "./NavBar";
+import { Heart, Plus, Trash2, Flame, Trophy, TrendingUp, Calendar, Info } from "lucide-react";
 import { supabase } from "../supabase";
+import {
+    Button,
+    Select,
+    RadioGroup,
+    Textarea,
+    Card,
+    CardBody,
+    Badge,
+    KpiCard,
+    Modal,
+    ConfirmDialog,
+    EmptyState,
+    SkeletonText,
+    SkeletonCard,
+    useToast,
+} from "./ui";
 
 const TRIGGERS = ["Traffic", "Work", "Family", "Social", "Waiting", "Other"];
 const INTENSITY_LABELS = ["", "Barely a test", "Mildly annoying", "Testing", "Hard", "Extremely hard"];
-const INTENSITY_COLORS = ["", "#8697C4", "#7091E6", "#f59e0b", "#f97316", "#ef4444"];
+const INTENSITY_COLORS = ["", "#64748B", "#94A3B8", "#D97706", "#EA580C", "#DC2626"];
 
 function toDateStr(iso) {
     return new Date(iso).toISOString().split("T")[0];
 }
 
 export default function PatienceMarker() {
+    const toast = useToast();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [detailsOpen, setDetailsOpen] = useState(false);
@@ -21,6 +37,7 @@ export default function PatienceMarker() {
     const [note, setNote] = useState("");
     const [showInfo, setShowInfo] = useState(false);
     const [justLogged, setJustLogged] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
     useEffect(() => { fetchLogs(); }, []);
 
@@ -32,7 +49,10 @@ export default function PatienceMarker() {
 
     async function quickLog() {
         const { data } = await supabase.from("patience_logs").insert({ logged_at: new Date().toISOString() }).select().single();
-        if (data) setLogs(prev => [data, ...prev]);
+        if (data) {
+            setLogs(prev => [data, ...prev]);
+            toast.success("Nice — logged your patience win.");
+        }
         flashLogged();
     }
 
@@ -43,7 +63,10 @@ export default function PatienceMarker() {
             intensity,
             note: note.trim() || null,
         }).select().single();
-        if (data) setLogs(prev => [data, ...prev]);
+        if (data) {
+            setLogs(prev => [data, ...prev]);
+            toast.success("Logged with details.");
+        }
         setTrigger(""); setIntensity(3); setNote(""); setDetailsOpen(false);
         flashLogged();
     }
@@ -56,6 +79,7 @@ export default function PatienceMarker() {
     async function deleteLog(id) {
         await supabase.from("patience_logs").delete().eq("id", id);
         setLogs(prev => prev.filter(l => l.id !== id));
+        toast.success("Entry deleted.");
     }
 
     const todayStr = new Date().toISOString().split("T")[0];
@@ -105,225 +129,217 @@ export default function PatienceMarker() {
         return acc;
     }, []).sort((a, b) => b.count - a.count);
 
+    const intensityOptions = [1, 2, 3, 4, 5].map(d => ({
+        value: d,
+        label: (
+            <span style={{ color: INTENSITY_COLORS[d] }} className="font-semibold">
+                {d} · {INTENSITY_LABELS[d]}
+            </span>
+        ),
+    }));
+
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen text-slate-700">
-            <Navbar />
-            <style>{`.dash-glass { background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(134,151,196,0.3); box-shadow: 0 8px 32px rgba(61,82,160,0.1); }`}</style>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+            {/* Header */}
+            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary mb-4">
+                    <Heart size={28} />
+                </div>
+                <h1 className="text-2xl font-bold text-[var(--text)] mb-1">Patience Marker</h1>
+                <p className="text-sm text-[var(--text-muted)] mb-4">
+                    Notice it · Mark it · Build it
+                </p>
+                <button
+                    onClick={() => setShowInfo(v => !v)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-primary transition-colors border border-[var(--border)] hover:border-primary/40 px-3 py-1.5 rounded-lg"
+                >
+                    <Info size={13} /> How it works
+                </button>
+            </motion.div>
 
-            <div className="max-w-3xl mx-auto px-4 py-12">
-                {/* Header */}
-                <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center p-3 dash-glass rounded-2xl mb-6 text-[#7091E6] border border-[#7091E6]/30 shadow-[0_0_20px_rgba(112,145,230,0.2)]">
-                        <Heart size={32} />
-                    </div>
-                    <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#3D52A0] via-[#7091E6] to-[#8697C4] mb-3 tracking-tight">
-                        PATIENCE MARKER
-                    </h1>
-                    <p className="text-[#7091E6]/70 font-mono text-sm tracking-[0.3em] uppercase mb-4">
-                        Notice It • Mark It • Build It
-                    </p>
-                    <button onClick={() => setShowInfo(v => !v)}
-                        className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-[#3D52A0] font-mono transition-colors border border-[#8697C4]/20 hover:border-[#7091E6]/40 px-3 py-1.5 rounded-lg">
-                        <Info size={13} /> How it works
-                    </button>
-                </motion.div>
-
-                <AnimatePresence>
-                    {showInfo && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                            className="dash-glass rounded-2xl p-6 mb-8">
-                            <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-sm font-bold text-[#3D52A0] font-mono uppercase tracking-widest">How to use Patience Marker</h3>
-                                <button onClick={() => setShowInfo(false)} className="text-slate-500 hover:text-[#3D52A0] transition-colors"><X size={16} /></button>
-                            </div>
-                            <p className="text-sm text-slate-500 leading-relaxed">
+            <AnimatePresence>
+                {showInfo && (
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                        <Card className="p-5">
+                            <p className="text-sm text-[var(--text-muted)] leading-relaxed">
                                 The moment you catch yourself staying calm instead of reacting — traffic, an annoying comment, a long wait — tap the button. That's it. Building awareness of when you succeed is what trains the habit. Add details when you want to spot your patterns.
                             </p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        </Card>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                {/* Big tap button */}
-                <div className="flex flex-col items-center mb-8">
-                    <motion.button
-                        onClick={quickLog}
-                        whileTap={{ scale: 0.92 }}
-                        className="relative w-40 h-40 rounded-full flex flex-col items-center justify-center gap-1 border-4 transition-colors"
-                        style={{
-                            background: "linear-gradient(135deg, rgba(112,145,230,0.25), rgba(61,82,160,0.15))",
-                            borderColor: "rgba(112,145,230,0.5)",
-                            boxShadow: "0 0 40px rgba(112,145,230,0.25)",
-                        }}
+            {/* Quick log action */}
+            <Card className="p-6 flex flex-col items-center gap-4">
+                <motion.button
+                    onClick={quickLog}
+                    whileTap={{ scale: 0.92 }}
+                    className="relative w-36 h-36 rounded-full flex flex-col items-center justify-center gap-1.5 border-4 border-primary/30 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+                >
+                    <Heart size={34} fill={justLogged ? "currentColor" : "none"} />
+                    <span className="text-sm font-bold uppercase tracking-wide">
+                        {justLogged ? "Logged!" : "I Stayed Patient"}
+                    </span>
+                </motion.button>
+                <Button variant="ghost" size="sm" icon={<Plus size={14} />} onClick={() => setDetailsOpen(true)}>
+                    Log with details instead
+                </Button>
+            </Card>
+
+            {/* Details modal */}
+            <Modal
+                open={detailsOpen}
+                onClose={() => setDetailsOpen(false)}
+                title="Log the Details"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setDetailsOpen(false)}>Cancel</Button>
+                        <Button variant="primary" icon={<Plus size={16} />} onClick={detailedLog}>Log It</Button>
+                    </>
+                }
+            >
+                <div className="flex flex-col gap-4">
+                    <Select
+                        label="What triggered it?"
+                        value={trigger}
+                        onChange={e => setTrigger(e.target.value)}
                     >
-                        <Heart size={36} className="text-[#3D52A0]" fill={justLogged ? "#3D52A0" : "none"} />
-                        <span className="text-sm font-black uppercase tracking-widest text-[#3D52A0]">
-                            {justLogged ? "Logged!" : "I Stayed Patient"}
-                        </span>
-                    </motion.button>
-                    <button onClick={() => setDetailsOpen(v => !v)}
-                        className="mt-4 text-xs font-mono text-[#7091E6] hover:text-[#3D52A0] transition-colors flex items-center gap-1.5">
-                        <Plus size={13} /> {detailsOpen ? "Cancel" : "Log with details instead"}
-                    </button>
+                        <option value="">No trigger / not sure</option>
+                        {TRIGGERS.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </Select>
+
+                    <RadioGroup
+                        name="intensity"
+                        options={intensityOptions}
+                        value={intensity}
+                        onChange={setIntensity}
+                    />
+
+                    <Textarea
+                        label="What happened? (optional)"
+                        value={note}
+                        onChange={e => setNote(e.target.value)}
+                        rows={2}
+                        placeholder="Describe the moment..."
+                    />
                 </div>
+            </Modal>
 
-                {/* Details form */}
-                <AnimatePresence>
-                    {detailsOpen && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                            className="dash-glass rounded-2xl p-6 mb-8 space-y-4 overflow-hidden">
-                            <div>
-                                <p className="text-xs text-slate-500 font-mono mb-2 uppercase tracking-wider">What triggered it?</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {TRIGGERS.map(t => (
-                                        <button key={t} onClick={() => setTrigger(t === trigger ? "" : t)}
-                                            className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
-                                            style={trigger === t
-                                                ? { background: "rgba(112,145,230,0.2)", borderColor: "rgba(112,145,230,0.5)", color: "#3D52A0" }
-                                                : { background: "rgba(255,255,255,0.4)", borderColor: "rgba(134,151,196,0.3)", color: "#64748b" }}>
-                                            {t}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <KpiCard icon={<TrendingUp size={18} />} label="Today" value={todayCount} />
+                <KpiCard icon={<Calendar size={18} />} label="This Week" value={weekCount} />
+                <KpiCard icon={<Flame size={18} />} label="Day Streak" value={currentStreak} tone="warning" />
+                <KpiCard icon={<Trophy size={18} />} label="Best Streak" value={bestStreak} tone="accent" />
+            </div>
 
-                            <div>
-                                <p className="text-xs text-slate-500 font-mono mb-2 uppercase tracking-wider">
-                                    How hard was it: <span style={{ color: INTENSITY_COLORS[intensity] }}>{INTENSITY_LABELS[intensity]}</span>
-                                </p>
-                                <div className="flex gap-2">
-                                    {[1, 2, 3, 4, 5].map(d => (
-                                        <button key={d} onClick={() => setIntensity(d)}
-                                            className="flex-1 py-2 rounded-xl text-sm font-bold border transition-all"
-                                            style={{
-                                                background: intensity >= d ? INTENSITY_COLORS[d] + "20" : "rgba(255,255,255,0.4)",
-                                                borderColor: intensity >= d ? INTENSITY_COLORS[d] + "50" : "rgba(134,151,196,0.3)",
-                                                color: intensity >= d ? INTENSITY_COLORS[d] : "#94a3b8",
-                                            }}>
-                                            {d}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <textarea value={note} onChange={e => setNote(e.target.value)}
-                                placeholder="What happened? (optional)"
-                                rows={2}
-                                className="w-full bg-white/40 border border-[#8697C4]/30 rounded-xl px-4 py-3 text-sm text-slate-700 placeholder-slate-500 outline-none focus:border-[#7091E6]/60 resize-none" />
-
-                            <button onClick={detailedLog}
-                                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all"
-                                style={{ background: "rgba(112,145,230,0.2)", border: "1px solid rgba(112,145,230,0.5)", color: "#3D52A0" }}>
-                                <Plus size={16} /> Log It
-                            </button>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                    <div className="dash-glass rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                        <TrendingUp size={18} className="text-[#7091E6]" />
-                        <p className="text-2xl font-black text-[#3D52A0]">{todayCount}</p>
-                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider text-center">Today</p>
-                    </div>
-                    <div className="dash-glass rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                        <Calendar size={18} className="text-[#7091E6]" />
-                        <p className="text-2xl font-black text-[#3D52A0]">{weekCount}</p>
-                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider text-center">This Week</p>
-                    </div>
-                    <div className="dash-glass rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                        <Flame size={18} className="text-orange-500" />
-                        <p className="text-2xl font-black text-[#3D52A0]">{currentStreak}</p>
-                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider text-center">Day Streak</p>
-                    </div>
-                    <div className="dash-glass rounded-2xl p-4 flex flex-col items-center justify-center gap-1">
-                        <Trophy size={18} className="text-amber-500" />
-                        <p className="text-2xl font-black text-[#3D52A0]">{bestStreak}</p>
-                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider text-center">Best Streak</p>
-                    </div>
-                </div>
-
-                {/* 14-day trend */}
-                <div className="dash-glass rounded-2xl p-6 mb-8">
-                    <h3 className="text-xs font-bold text-[#3D52A0] font-mono uppercase tracking-widest mb-4">Last 14 Days</h3>
+            {/* 14-day trend */}
+            <Card>
+                <CardBody>
+                    <h3 className="text-xs font-semibold text-[var(--text)] uppercase tracking-wide mb-4">Last 14 Days</h3>
                     <div className="flex items-end gap-1.5 h-24">
                         {last14.map(d => (
                             <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full gap-1" title={`${d.date}: ${d.count}`}>
-                                <div className="w-full rounded-t-md transition-all"
+                                <div
+                                    className={`w-full rounded-t-md transition-all ${d.date === todayStr ? "bg-primary" : d.count > 0 ? "bg-primary/40" : "bg-[var(--border)]"}`}
                                     style={{
                                         height: `${(d.count / maxDay) * 100}%`,
                                         minHeight: d.count > 0 ? "6px" : "2px",
-                                        background: d.date === todayStr
-                                            ? "linear-gradient(180deg, #3D52A0, #7091E6)"
-                                            : d.count > 0 ? "rgba(112,145,230,0.5)" : "rgba(134,151,196,0.15)",
-                                    }} />
+                                    }}
+                                />
                             </div>
                         ))}
                     </div>
                     <div className="flex justify-between mt-2">
-                        <span className="text-[9px] text-slate-500 font-mono">{last14[0].date.slice(5)}</span>
-                        <span className="text-[9px] text-slate-500 font-mono">Today</span>
+                        <span className="text-[10px] text-[var(--text-muted)] font-mono">{last14[0].date.slice(5)}</span>
+                        <span className="text-[10px] text-[var(--text-muted)] font-mono">Today</span>
                     </div>
-                </div>
+                </CardBody>
+            </Card>
 
-                {/* Trigger breakdown */}
-                {triggerCounts.length > 0 && (
-                    <div className="dash-glass rounded-2xl p-6 mb-8">
-                        <h3 className="text-xs font-bold text-[#3D52A0] font-mono uppercase tracking-widest mb-4">Where It Happens Most</h3>
-                        <div className="space-y-2">
+            {/* Trigger breakdown */}
+            {triggerCounts.length > 0 && (
+                <Card>
+                    <CardBody>
+                        <h3 className="text-xs font-semibold text-[var(--text)] uppercase tracking-wide mb-4">Where It Happens Most</h3>
+                        <div className="flex flex-col gap-2.5">
                             {triggerCounts.map(({ trigger: t, count }) => (
                                 <div key={t} className="flex items-center gap-3">
-                                    <span className="text-xs text-slate-600 font-medium w-16 shrink-0">{t}</span>
-                                    <div className="flex-1 h-2 rounded-full bg-[#8697C4]/15 overflow-hidden">
-                                        <div className="h-full rounded-full" style={{ width: `${(count / triggerCounts[0].count) * 100}%`, background: "linear-gradient(90deg, #3D52A0, #7091E6)" }} />
+                                    <span className="text-xs text-[var(--text)] font-medium w-16 shrink-0">{t}</span>
+                                    <div className="flex-1 h-2 rounded-full bg-[var(--surface-hover)] overflow-hidden">
+                                        <div className="h-full rounded-full bg-primary" style={{ width: `${(count / triggerCounts[0].count) * 100}%` }} />
                                     </div>
-                                    <span className="text-xs text-slate-500 font-mono w-6 text-right">{count}</span>
+                                    <span className="text-xs text-[var(--text-muted)] font-mono w-6 text-right">{count}</span>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    </CardBody>
+                </Card>
+            )}
 
-                {/* Recent entries */}
-                <div className="space-y-3">
-                    <h3 className="text-xs font-bold text-[#3D52A0] font-mono uppercase tracking-widest px-1">Recent Log</h3>
+            {/* Recent entries */}
+            <div className="flex flex-col gap-3">
+                <h3 className="text-xs font-semibold text-[var(--text)] uppercase tracking-wide px-1">Recent Log</h3>
+
+                {loading ? (
+                    <div className="flex flex-col gap-3">
+                        <SkeletonCard />
+                        <SkeletonText lines={3} />
+                    </div>
+                ) : logs.length === 0 ? (
+                    <EmptyState
+                        icon={<Heart size={22} />}
+                        title="No moments logged yet"
+                        message="Next time you stay calm, mark it."
+                    />
+                ) : (
                     <AnimatePresence>
                         {logs.slice(0, 25).map((l, i) => (
-                            <motion.div key={l.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, x: 20 }} transition={{ delay: i * 0.02 }}
-                                className="dash-glass rounded-xl p-4 flex items-start gap-3">
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                                    style={{ background: "rgba(112,145,230,0.15)", color: "#3D52A0" }}>
-                                    <Heart size={14} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-xs text-slate-600 font-mono">
-                                            {new Date(l.logged_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                                        </span>
-                                        {l.trigger && (
-                                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(112,145,230,0.12)", color: "#3D52A0" }}>{l.trigger}</span>
-                                        )}
-                                        {l.intensity && (
-                                            <span className="text-[10px] font-mono" style={{ color: INTENSITY_COLORS[l.intensity] }}>{INTENSITY_LABELS[l.intensity]}</span>
-                                        )}
+                            <motion.div
+                                key={l.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, x: 20 }}
+                                transition={{ delay: i * 0.02 }}
+                            >
+                                <Card className="p-4 flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                        <Heart size={14} />
                                     </div>
-                                    {l.note && <p className="text-xs text-slate-500 mt-1 italic">"{l.note}"</p>}
-                                </div>
-                                <button onClick={() => deleteLog(l.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1 shrink-0">
-                                    <Trash2 size={13} />
-                                </button>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-xs text-[var(--text-muted)] font-mono">
+                                                {new Date(l.logged_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                                            </span>
+                                            {l.trigger && <Badge variant="primary">{l.trigger}</Badge>}
+                                            {l.intensity && (
+                                                <span className="text-[10px] font-mono font-semibold" style={{ color: INTENSITY_COLORS[l.intensity] }}>
+                                                    {INTENSITY_LABELS[l.intensity]}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {l.note && <p className="text-xs text-[var(--text-muted)] mt-1 italic">"{l.note}"</p>}
+                                    </div>
+                                    <button onClick={() => setConfirmDeleteId(l.id)} className="text-[var(--text-muted)] hover:text-danger transition-colors p-1 shrink-0">
+                                        <Trash2 size={14} />
+                                    </button>
+                                </Card>
                             </motion.div>
                         ))}
                     </AnimatePresence>
-                    {!loading && logs.length === 0 && (
-                        <div className="text-center text-slate-500 py-16">
-                            <Heart size={40} className="mx-auto mb-3 opacity-20" />
-                            <p className="font-mono text-sm">No moments logged yet. Next time you stay calm, mark it.</p>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
-        </motion.div>
+
+            <ConfirmDialog
+                open={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={() => { deleteLog(confirmDeleteId); setConfirmDeleteId(null); }}
+                title="Delete this entry?"
+                message="This log entry will be permanently removed. This action cannot be undone."
+                confirmLabel="Delete"
+            />
+        </div>
     );
 }

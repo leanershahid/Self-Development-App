@@ -1,26 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ClipboardList, Award, TrendingUp, Calendar } from 'lucide-react';
-import Navbar from './NavBar';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { ClipboardList, TrendingUp, Award, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Card, CardHeader, CardBody, Badge, Button, KpiCard, Table, SkeletonCard } from './ui';
 
 const supabase = createClient(
   'https://qwjujuvtfqahapohhfzs.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
 );
 
-const GLASS = { background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' };
+// Maps letter grade -> design-system tone. These are purely presentational
+// (which color/badge-variant a grade renders as) and do not affect the
+// underlying completionPct calculation.
+const TONE_TEXT = {
+  success: 'text-accent',
+  info: 'text-info',
+  primary: 'text-primary',
+  warning: 'text-warning',
+  danger: 'text-danger',
+};
+const TONE_BG = {
+  success: 'bg-accent',
+  info: 'bg-info',
+  primary: 'bg-primary',
+  warning: 'bg-warning',
+  danger: 'bg-danger',
+};
 
 function getGrade(pct) {
-  if (pct >= 95) return { grade: 'S', color: '#f59e0b', label: 'Legendary', glow: 'rgba(245,158,11,0.5)' };
-  if (pct >= 85) return { grade: 'A+', color: '#22d3ee', label: 'Excellent', glow: 'rgba(34,211,238,0.4)' };
-  if (pct >= 75) return { grade: 'A',  color: '#4ade80', label: 'Great',     glow: 'rgba(74,222,128,0.4)' };
-  if (pct >= 65) return { grade: 'B+', color: '#818cf8', label: 'Good',      glow: 'rgba(129,140,248,0.4)' };
-  if (pct >= 55) return { grade: 'B',  color: '#a78bfa', label: 'Above Avg', glow: 'rgba(167,139,250,0.4)' };
-  if (pct >= 45) return { grade: 'C',  color: '#fb923c', label: 'Average',   glow: 'rgba(251,146,60,0.4)' };
-  if (pct >= 35) return { grade: 'D',  color: '#f87171', label: 'Below Avg', glow: 'rgba(248,113,113,0.4)' };
-  return { grade: 'F', color: '#ef4444', label: 'Failed', glow: 'rgba(239,68,68,0.4)' };
+  if (pct >= 95) return { grade: 'S', label: 'Legendary', tone: 'success' };
+  if (pct >= 85) return { grade: 'A+', label: 'Excellent', tone: 'success' };
+  if (pct >= 75) return { grade: 'A', label: 'Great', tone: 'success' };
+  if (pct >= 65) return { grade: 'B+', label: 'Good', tone: 'info' };
+  if (pct >= 55) return { grade: 'B', label: 'Above Avg', tone: 'primary' };
+  if (pct >= 45) return { grade: 'C', label: 'Average', tone: 'warning' };
+  if (pct >= 35) return { grade: 'D', label: 'Below Avg', tone: 'danger' };
+  return { grade: 'F', label: 'Failed', tone: 'danger' };
 }
 
 function getWeekRange(offset = 0) {
@@ -99,118 +115,149 @@ export default function WeeklyReportCard() {
   const { start, end } = getWeekRange(weekOffset);
   const dateLabel = `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
-  return (
-    <div className="min-h-screen bg-[#020617] text-slate-200">
-      <Navbar />
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-5%] w-[35%] h-[35%] rounded-full bg-indigo-900/20 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-purple-900/20 blur-[120px]" />
-      </div>
-
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-10">
-        <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl mb-4 border border-indigo-500/30" style={{ ...GLASS, boxShadow: '0 0 24px rgba(129,140,248,0.2)' }}>
-            <ClipboardList size={32} className="text-indigo-400" />
-          </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-indigo-500 mb-2">WEEKLY REPORT CARD</h1>
-          <p className="text-indigo-400/50 font-mono text-xs tracking-[0.3em] uppercase">Auto-Generated · Every Week · Your Grade</p>
-        </motion.div>
-
-        {/* Week Navigator */}
-        <div className="flex items-center justify-between mb-6 rounded-2xl px-6 py-4" style={GLASS}>
-          <button onClick={() => setWeekOffset(w => w - 1)} className="px-4 py-2 rounded-xl text-sm font-mono text-slate-400 hover:text-slate-200 transition-all"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>← Prev</button>
-          <div className="text-center">
-            <p className="text-xs font-mono text-slate-500 uppercase tracking-widest">{weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : `${Math.abs(weekOffset)} weeks ago`}</p>
-            <p className="text-sm font-bold text-slate-300 mt-0.5">{dateLabel}</p>
-          </div>
-          <button onClick={() => setWeekOffset(w => Math.min(0, w + 1))} disabled={weekOffset === 0}
-            className="px-4 py-2 rounded-xl text-sm font-mono transition-all disabled:opacity-30"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8' }}>Next →</button>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-20"><div className="w-10 h-10 border-4 border-indigo-900 border-t-indigo-400 rounded-full animate-spin mx-auto" /></div>
-        ) : report && (
-          <>
-            {/* Grade Card */}
-            {(() => {
-              const g = getGrade(report.completionPct);
-              return (
-                <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }}
-                  className="rounded-3xl p-8 mb-6 text-center relative overflow-hidden"
-                  style={{ ...GLASS, boxShadow: `0 0 60px ${g.glow}, 0 8px 32px rgba(0,0,0,0.4)` }}>
-                  <div className="absolute inset-0 opacity-5" style={{ background: `radial-gradient(circle at 50% 50%, ${g.color}, transparent 70%)` }} />
-                  <p className="text-xs font-mono tracking-[0.4em] uppercase mb-2 text-slate-500">Weekly Grade</p>
-                  <div className="text-9xl font-black mb-2" style={{ color: g.color, textShadow: `0 0 40px ${g.glow}` }}>{g.grade}</div>
-                  <div className="inline-block px-5 py-1.5 rounded-full text-sm font-bold tracking-widest uppercase border mb-4"
-                    style={{ color: g.color, borderColor: g.color + '50', background: g.color + '15' }}>{g.label}</div>
-                  <div className="text-4xl font-light" style={{ color: g.color }}>{report.completionPct}%</div>
-                  <p className="text-xs text-slate-500 font-mono mt-1">{report.completed} / {report.total} tasks completed</p>
-                </motion.div>
-              );
-            })()}
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {[
-                { label: 'Completion', value: `${report.completionPct}%`, color: '#22d3ee' },
-                { label: 'Consistency', value: `${report.consistency}%`, color: '#4ade80' },
-                { label: 'Avg Mood', value: report.avgMood ? `${report.avgMood.toFixed(1)}/5` : 'N/A', color: '#facc15' },
-                { label: 'Active Days', value: `${report.daysActive}/7`, color: '#818cf8' },
-              ].map((s, i) => (
-                <motion.div key={i} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 + i * 0.05 }}
-                  className="rounded-2xl p-4 text-center" style={GLASS}>
-                  <div className="text-2xl font-bold mb-1" style={{ color: s.color }}>{s.value}</div>
-                  <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">{s.label}</div>
-                </motion.div>
-              ))}
+  const historyColumns = [
+    {
+      key: 'grade',
+      header: 'Grade',
+      width: '70px',
+      render: (row) => {
+        const g = getGrade(row.pct);
+        return <Badge variant={g.tone}>{g.grade}</Badge>;
+      },
+    },
+    {
+      key: 'pct',
+      header: 'Completion',
+      render: (row) => {
+        const g = getGrade(row.pct);
+        return (
+          <div className="flex items-center gap-3 min-w-[140px]">
+            <div className="flex-1 h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden">
+              <div className={`h-full rounded-full ${TONE_BG[g.tone]}`} style={{ width: `${row.pct}%` }} />
             </div>
+            <span className="text-xs font-medium text-[var(--text-muted)] w-9 text-right">{row.pct}%</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'label',
+      header: 'Week Of',
+      width: '110px',
+      render: (row) => <span className="text-xs text-[var(--text-muted)]">{row.label}</span>,
+    },
+  ];
 
-            {/* Radar Chart */}
-            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-3xl p-6 mb-6" style={GLASS}>
-              <h2 className="text-sm font-mono uppercase tracking-widest text-slate-500 mb-4">Daily Performance Radar</h2>
-              <div className="h-64" style={{ background: 'rgba(8,14,30,0.7)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', padding: 16 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={report.radarData}>
-                    <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                    <PolarAngleAxis dataKey="day" tick={{ fill: '#475569', fontSize: 11, fontFamily: 'monospace' }} />
-                    <Radar dataKey="rate" stroke="#818cf8" fill="#818cf8" fillOpacity={0.2} strokeWidth={2}
-                      dot={{ fill: '#818cf8', r: 3 }} activeDot={{ r: 5, fill: '#818cf8', stroke: '#EDE8F5' }} />
-                    <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.78)', border: '1px solid rgba(129,140,248,0.3)', borderRadius: 10, color: '#818cf8', fontSize: 12 }} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+      {/* Header */}
+      <motion.div initial={{ y: -12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-primary/10 text-primary">
+          <ClipboardList size={28} />
+        </div>
+        <h1 className="text-2xl font-bold text-[var(--text)]">Weekly Report Card</h1>
+        <p className="text-sm text-[var(--text-muted)]">Auto-generated every week based on your activity.</p>
+      </motion.div>
 
-            {/* All Weeks History */}
-            {allWeeks.length > 0 && (
-              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="rounded-3xl p-6" style={GLASS}>
-                <h2 className="text-sm font-mono uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2"><Calendar size={14} /> Grade History</h2>
-                <div className="space-y-2">
-                  {allWeeks.map((w, i) => {
-                    const g = getGrade(w.pct);
-                    return (
-                      <div key={i} className="flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all hover:bg-white/[0.03]"
-                        style={{ border: '1px solid rgba(255,255,255,0.04)' }} onClick={() => setWeekOffset(w.offset)}>
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0"
-                          style={{ background: g.color + '20', border: `1px solid ${g.color}40`, color: g.color }}>{g.grade}</div>
-                        <div className="flex-1">
-                          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${w.pct}%`, background: g.color }} />
-                          </div>
-                        </div>
-                        <span className="text-xs font-mono text-slate-500 w-8 text-right">{w.pct}%</span>
-                        <span className="text-[10px] font-mono text-slate-600 w-16 text-right">{w.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+      {/* Week Navigator */}
+      <Card>
+        <CardBody className="flex items-center justify-between gap-4">
+          <Button variant="ghost" size="sm" icon={<ChevronLeft size={16} />} onClick={() => setWeekOffset(w => w - 1)}>
+            Prev
+          </Button>
+          <div className="text-center">
+            <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
+              {weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : `${Math.abs(weekOffset)} weeks ago`}
+            </p>
+            <p className="text-sm font-semibold text-[var(--text)] mt-0.5">{dateLabel}</p>
+          </div>
+          <Button variant="ghost" size="sm" disabled={weekOffset === 0} onClick={() => setWeekOffset(w => Math.min(0, w + 1))}>
+            Next <ChevronRight size={16} />
+          </Button>
+        </CardBody>
+      </Card>
+
+      {loading ? (
+        <div className="flex flex-col gap-6">
+          <SkeletonCard />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+          </div>
+          <SkeletonCard />
+        </div>
+      ) : report && (
+        <>
+          {/* Grade Card */}
+          {(() => {
+            const g = getGrade(report.completionPct);
+            return (
+              <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }}>
+                <Card className="text-center">
+                  <CardBody className="py-8">
+                    <p className="text-xs font-medium tracking-widest uppercase mb-2 text-[var(--text-muted)]">Weekly Grade</p>
+                    <div className={`text-8xl font-black mb-3 ${TONE_TEXT[g.tone]}`}>{g.grade}</div>
+                    <Badge variant={g.tone} className="mb-4 px-4 py-1 text-sm">{g.label}</Badge>
+                    <div className={`text-3xl font-semibold ${TONE_TEXT[g.tone]}`}>{report.completionPct}%</div>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">{report.completed} / {report.total} tasks completed</p>
+                  </CardBody>
+                </Card>
               </motion.div>
-            )}
-          </>
-        )}
-      </div>
+            );
+          })()}
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Completion', value: `${report.completionPct}%`, icon: <ClipboardList size={18} />, tone: 'primary' },
+              { label: 'Consistency', value: `${report.consistency}%`, icon: <TrendingUp size={18} />, tone: 'accent' },
+              { label: 'Avg Mood', value: report.avgMood ? `${report.avgMood.toFixed(1)}/5` : 'N/A', icon: <Award size={18} />, tone: 'warning' },
+              { label: 'Active Days', value: `${report.daysActive}/7`, icon: <Calendar size={18} />, tone: 'primary' },
+            ].map((s, i) => (
+              <motion.div key={i} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 + i * 0.05 }}>
+                <KpiCard label={s.label} value={s.value} icon={s.icon} tone={s.tone} />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Radar Chart */}
+          <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
+            <Card>
+              <CardHeader title="Daily Performance Radar" icon={<TrendingUp size={16} />} />
+              <CardBody>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={report.radarData}>
+                      <PolarGrid stroke="var(--border)" />
+                      <PolarAngleAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                      <Radar dataKey="rate" stroke="#10B981" fill="#10B981" fillOpacity={0.25} strokeWidth={2}
+                        dot={{ fill: '#10B981', r: 3 }} activeDot={{ r: 5, fill: '#10B981', stroke: 'var(--surface)' }} />
+                      <RechartsTooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 12 }} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardBody>
+            </Card>
+          </motion.div>
+
+          {/* All Weeks History */}
+          {allWeeks.length > 0 && (
+            <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
+              <Card>
+                <CardHeader title="Grade History" icon={<Calendar size={16} />} />
+                <CardBody>
+                  <Table
+                    columns={historyColumns}
+                    data={allWeeks}
+                    rowKey={(row) => row.offset}
+                    pageSize={0}
+                    onRowClick={(row) => setWeekOffset(row.offset)}
+                  />
+                </CardBody>
+              </Card>
+            </motion.div>
+          )}
+        </>
+      )}
     </div>
   );
 }

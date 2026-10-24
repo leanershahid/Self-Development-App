@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import AppLayout from "./layout/AppLayout";
 import TodoList from "./ToDoList";
 import PerformanceDashboard from "./PerformanceDashboard";
 import RewardsDashboard from "./RewardsDashboard";
@@ -36,6 +37,7 @@ import GymTracker from "./GymTracker";
 function RoutesConfig() {
     return (
         <Router>
+            <AppLayout>
             <Routes>
                 <Route path="/" element={<TodoList />} />
                 <Route path="/performance-dashboard" element={<PerformanceDashboard />} />
@@ -69,6 +71,7 @@ function RoutesConfig() {
                 <Route path="/workout-diet" element={<WorkoutDiet />} />
                 <Route path="/gym" element={<GymTracker />} />
             </Routes>
+            </AppLayout>
         </Router>
     );
 }

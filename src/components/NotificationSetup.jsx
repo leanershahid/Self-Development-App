@@ -35,30 +35,21 @@ export default function NotificationSetup() {
       onClick={toggle}
       disabled={loading}
       title={enabled ? 'Disable background notifications' : 'Enable background notifications'}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 36, height: 36, borderRadius: 10, cursor: loading ? 'wait' : 'pointer',
-        background: enabled ? 'rgba(217,70,239,0.15)' : 'rgba(255,255,255,0.05)',
-        border: `1px solid ${enabled ? 'rgba(217,70,239,0.4)' : 'rgba(255,255,255,0.1)'}`,
-        color: enabled ? '#d946ef' : '#64748b',
-        transition: 'all 0.2s', flexShrink: 0,
-        boxShadow: enabled ? '0 0 10px rgba(217,70,239,0.2)' : 'none',
-      }}
+      className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors duration-200 ${
+        loading ? 'cursor-wait' : 'cursor-pointer'
+      } ${
+        enabled
+          ? 'bg-accent/10 border-accent/30 text-accent'
+          : 'bg-transparent border-transparent text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text)]'
+      }`}
     >
       {loading ? (
-        <div style={{ 
-          width: 14, height: 14, 
-          border: '2px solid currentColor', 
-          borderTopColor: 'transparent', 
-          borderRadius: '50%', 
-          animation: 'spin 0.6s linear infinite' 
-        }} />
+        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
       ) : enabled ? (
-        <Bell size={15} />
+        <Bell size={16} />
       ) : (
-        <BellOff size={15} />
+        <BellOff size={16} />
       )}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </button>
   );
 }

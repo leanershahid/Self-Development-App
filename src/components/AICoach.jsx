@@ -1,8 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, Sparkles, Loader2, RefreshCw, ChevronDown, ChevronUp, Zap, Brain, Target, CheckCircle, AlertTriangle, Flame, MessageCircle, Send, BarChart2, Copy, Check, History, X } from "lucide-react";
-import Navbar from "./NavBar";
+import { Bot, Sparkles, RefreshCw, ChevronDown, ChevronUp, Brain, Target, CheckCircle, AlertTriangle, Flame, MessageCircle, Send, Copy, Check, History, X, User } from "lucide-react";
 import { supabase } from "../supabase";
+import { Button, IconButton, Input, Card, CardHeader, CardBody, Badge, Tabs, EmptyState, SkeletonText } from "./ui";
+
+const ICON_TOKENS = {
+    primary: "bg-primary/10 text-primary",
+    success: "bg-accent/10 text-accent",
+    warning: "bg-warning/10 text-warning",
+    info: "bg-info/10 text-info",
+};
 
 const GEMINI_API_KEY = "AQ.Ab8RN6LW2yl3vp7Aib0zssqdloHPwuKr3DFqsVPzwxQR9vhoHA";
 const TODAY = new Date().toISOString().split("T")[0];
@@ -112,11 +119,11 @@ Now give me my personalised daily analysis and instructions.`;
 }
 
 const SECTIONS = [
-    { key: "assessment", label: "Overall Assessment",    color: "#22d3ee", grad: "from-cyan-500/20 to-cyan-500/5",     Icon: Brain,         glow: "rgba(61,82,160,0.15)" },
-    { key: "doing_well", label: "What You're Doing Well", color: "#4ade80", grad: "from-emerald-500/20 to-emerald-500/5", Icon: CheckCircle,   glow: "rgba(74,222,128,0.15)" },
-    { key: "attention",  label: "Needs Attention",        color: "#f97316", grad: "from-orange-500/20 to-orange-500/5",  Icon: AlertTriangle, glow: "rgba(249,115,22,0.15)" },
-    { key: "actions",    label: "Today's Action Plan",    color: "#a78bfa", grad: "from-violet-500/20 to-violet-500/5",  Icon: Target,        glow: "rgba(112,145,230,0.15)" },
-    { key: "motivation", label: "Your Personal Message",  color: "#f59e0b", grad: "from-amber-500/20 to-amber-500/5",   Icon: Flame,         glow: "rgba(245,158,11,0.15)" },
+    { key: "assessment", label: "Overall Assessment",    Icon: Brain,         badge: "primary" },
+    { key: "doing_well", label: "What You're Doing Well", Icon: CheckCircle,   badge: "success" },
+    { key: "attention",  label: "Needs Attention",        Icon: AlertTriangle, badge: "warning" },
+    { key: "actions",    label: "Today's Action Plan",    Icon: Target,        badge: "info" },
+    { key: "motivation", label: "Your Personal Message",  Icon: Flame,         badge: "success" },
 ];
 
 function parseResponse(text) {
@@ -239,304 +246,262 @@ export default function AICoach() {
 
     function quickAsk(q) { setChatInput(q); }
 
+    const TAB_ITEMS = [
+        { value: "analysis", label: "Analysis" },
+        { value: "chat", label: "Chat" },
+    ];
+
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-[#020617] text-slate-200 overflow-x-hidden">
-            <Navbar />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
 
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
-                .ai-title { font-family: 'Syne', sans-serif; }
-                .ai-body  { font-family: 'Inter', sans-serif; }
-                .glass-card {
-                    background: rgba(255,255,255,0.5);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255,255,255,0.06);
-                }
-                .orb1 { position:fixed; top:-20%; left:-10%; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 70%); pointer-events:none; z-index:0; }
-                .orb2 { position:fixed; bottom:-20%; right:-10%; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle, rgba(167,139,250,0.06) 0%, transparent 70%); pointer-events:none; z-index:0; }
-                .orb3 { position:fixed; top:40%; left:50%; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle, rgba(245,158,11,0.04) 0%, transparent 70%); pointer-events:none; z-index:0; transform:translateX(-50%); }
-                @keyframes pulse-ring { 0%,100%{transform:scale(1);opacity:0.4} 50%{transform:scale(1.08);opacity:0.8} }
-                .pulse-ring { animation: pulse-ring 2.5s ease-in-out infinite; }
-                @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
-                .shimmer-text {
-                    background: linear-gradient(90deg, #fff 0%, #22d3ee 30%, #a78bfa 60%, #fff 100%);
-                    background-size: 200% auto;
-                    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-                    animation: shimmer 4s linear infinite;
-                }
-                .section-content p { margin-bottom: 0.5rem; }
-                .section-content ul { list-style: none; padding: 0; }
-                .section-content li { padding: 0.35rem 0; padding-left: 1.2rem; position: relative; }
-                .section-content li::before { content: "›"; position: absolute; left: 0; opacity: 0.5; }
-            `}</style>
+            {/* Header */}
+            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary mb-4">
+                    <Bot size={28} />
+                </div>
+                <h1 className="text-2xl font-bold text-[var(--text)] mb-1">AI Coach</h1>
+                <p className="text-sm text-[var(--text-muted)]">Your personal intelligence layer</p>
+            </motion.div>
 
-            {/* Background orbs */}
-            <div className="orb1" /><div className="orb2" /><div className="orb3" />
+            {/* Tabs */}
+            <Tabs tabs={TAB_ITEMS} value={tab} onChange={setTab} className="justify-center" />
 
-            <div className="relative z-10 max-w-2xl mx-auto px-4 py-14 ai-body">
+            {tab === "analysis" && (
+                <>
+                    {/* Info strip */}
+                    <Card>
+                        <CardBody className="flex gap-2 flex-wrap">
+                            {["Todos", "Mood", "Habits", "Journal", "Skills", "Books", "Fears", "Affirmations", "Comfort Zone", "Money", "Rewards", "Goals", "Plans", "Friends"].map(tag => (
+                                <Badge key={tag} variant="primary">{tag}</Badge>
+                            ))}
+                        </CardBody>
+                    </Card>
 
-                {/* Tab Switcher */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                    className="flex gap-2 glass-card rounded-2xl p-1.5 mb-8 border border-white/5">
-                    {[{ id: "analysis", label: "Analysis", Icon: BarChart2 }, { id: "chat", label: "Chat", Icon: MessageCircle }].map(({ id, label, Icon }) => (
-                        <button key={id} onClick={() => setTab(id)}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold uppercase tracking-widest transition-all duration-200"
-                            style={tab === id
-                                ? { background: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "1px solid rgba(61,82,160,0.3)" }
-                                : { color: "#475569", border: "1px solid transparent" }}>
-                            <Icon size={15} />{label}
-                        </button>
-                    ))}
-                </motion.div>
-
-                {/* Header */}
-                <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="text-center mb-14">
-
-                    {/* Icon with pulse rings */}
-                    <div className="relative inline-flex items-center justify-center mb-8">
-                        <div className="pulse-ring absolute w-24 h-24 rounded-full border border-cyan-500/20" />
-                        <div className="pulse-ring absolute w-32 h-32 rounded-full border border-cyan-500/10" style={{ animationDelay: "0.4s" }} />
-                        <div className="relative w-16 h-16 rounded-2xl glass-card flex items-center justify-center border border-cyan-500/30"
-                            style={{ boxShadow: "0 0 40px rgba(34,211,238,0.2), inset 0 1px 0 rgba(255,255,255,0.1)" }}>
-                            <Bot size={28} className="text-cyan-400" />
+                    {/* CTA */}
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="primary"
+                                size="lg"
+                                onClick={runAnalysis}
+                                loading={loading}
+                                icon={!loading ? (analysis ? <RefreshCw size={18} /> : <Sparkles size={18} />) : undefined}
+                            >
+                                {loading ? "Analysing your day..." : analysis ? "Re-analyse" : "Analyse My Day"}
+                            </Button>
+                            {analysisHistory.length > 0 && (
+                                <IconButton
+                                    label="History"
+                                    variant={showHistory ? "primary" : "default"}
+                                    onClick={() => setShowHistory(v => !v)}
+                                >
+                                    <History size={16} />
+                                </IconButton>
+                            )}
+                            {analysis && (
+                                <IconButton label="Copy all" onClick={copyAll}>
+                                    {copiedKey === "all" ? <Check size={16} className="text-accent" /> : <Copy size={16} />}
+                                </IconButton>
+                            )}
                         </div>
-                    </div>
-
-                    <h1 className="ai-title shimmer-text text-5xl md:text-6xl font-extrabold tracking-tight mb-3">
-                        AI COACH
-                    </h1>
-                    <p className="text-slate-500 text-sm tracking-[0.25em] uppercase font-medium mb-1">
-                        Your Personal Intelligence Layer
-                    </p>
-                    <p className="text-slate-700 text-xs font-mono">Gemini · 3.6 Flash</p>
-                </motion.div>
-
-                {/* Info strip */}
-                {tab === "analysis" && <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                    className="glass-card rounded-2xl p-4 mb-8 flex items-center gap-4 border border-white/5">
-                    <div className="flex gap-2 flex-wrap">
-                        {["Todos","Mood","Habits","Journal","Skills","Books","Fears","Affirmations","Comfort Zone","Money","Rewards","Goals","Plans","Friends"].map(tag => (
-                            <span key={tag} className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-cyan-500/20 text-cyan-400/70 bg-cyan-500/5 tracking-wider uppercase">{tag}</span>
-                        ))}
-                    </div>
-                </motion.div>}
-
-                {/* CTA Button */}
-                {tab === "analysis" && <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="text-center mb-10">
-                    <div className="flex items-center justify-center gap-3">
-                        <button onClick={runAnalysis} disabled={loading}
-                            className="relative group inline-flex items-center gap-3 px-10 py-4 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-                            style={{ background: "linear-gradient(135deg, rgba(61,82,160,0.15) 0%, rgba(112,145,230,0.15) 100%)", border: "1px solid rgba(61,82,160,0.3)", color: "#3D52A0", boxShadow: loading ? "none" : "0 0 40px rgba(61,82,160,0.12), 0 0 80px rgba(112,145,230,0.08)" }}>
-                            <span className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            {loading
-                                ? <><Loader2 size={18} className="animate-spin text-cyan-400" /><span className="text-cyan-300">Analysing your day...</span></>
-                                : analysis
-                                    ? <><RefreshCw size={18} className="text-cyan-400" /><span>Re-analyse</span></>
-                                    : <><Sparkles size={18} className="text-cyan-400" /><span>Analyse My Day</span><Zap size={14} className="text-violet-400" /></>
-                            }
-                        </button>
-                        {analysisHistory.length > 0 && (
-                            <button onClick={() => setShowHistory(v => !v)} title="History"
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200"
-                                style={{ background: showHistory ? "rgba(112,145,230,0.15)" : "rgba(255,255,255,0.04)", border: showHistory ? "1px solid rgba(167,139,250,0.3)" : "1px solid rgba(255,255,255,0.08)" }}>
-                                <History size={16} className={showHistory ? "text-violet-400" : "text-slate-500"} />
-                            </button>
-                        )}
-                        {analysis && (
-                            <button onClick={copyAll} title="Copy all"
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200"
-                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                {copiedKey === "all" ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} className="text-slate-500" />}
-                            </button>
+                        {lastRun && (
+                            <p className="text-xs text-[var(--text-muted)] flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block" />
+                                Last analysed at {lastRun}
+                            </p>
                         )}
                     </div>
-                    {lastRun && (
-                        <p className="text-xs text-slate-700 font-mono mt-3 flex items-center justify-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                            Last analysed at {lastRun}
-                        </p>
+
+                    {/* History Panel */}
+                    <AnimatePresence>
+                        {showHistory && analysisHistory.length > 0 && (
+                            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                                <Card>
+                                    <CardHeader
+                                        title="History"
+                                        icon={<History size={16} />}
+                                        action={
+                                            <IconButton label="Close" size="sm" onClick={() => setShowHistory(false)}>
+                                                <X size={14} />
+                                            </IconButton>
+                                        }
+                                    />
+                                    <div className="divide-y divide-[var(--border)]">
+                                        {analysisHistory.map((h, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => { setAnalysis(h.parsed); setLastRun(h.time); setOpen({ assessment: true, doing_well: true, attention: true, actions: true, motivation: true }); setShowHistory(false); }}
+                                                className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-[var(--surface-hover)] transition-colors"
+                                            >
+                                                <span className="text-xs text-[var(--text-muted)]">{h.date} · {h.time}</span>
+                                                <span className="text-[10px] text-primary font-semibold uppercase tracking-wider">Restore</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </Card>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Error */}
+                    {error && (
+                        <div className="rounded-xl p-4 border border-danger/30 bg-danger/5 flex items-center gap-3">
+                            <AlertTriangle size={16} className="text-danger shrink-0" />
+                            <p className="text-danger text-sm">{error}</p>
+                        </div>
                     )}
-                </motion.div>}
 
-                {/* History Panel */}
-                <AnimatePresence>
-                {tab === "analysis" && showHistory && analysisHistory.length > 0 && (
-                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                        className="glass-card rounded-2xl border border-violet-500/20 mb-6 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                            <span className="text-xs font-bold uppercase tracking-widest text-violet-400 flex items-center gap-2"><History size={13} />History</span>
-                            <button onClick={() => setShowHistory(false)}><X size={14} className="text-slate-600" /></button>
-                        </div>
-                        <div className="divide-y divide-white/5">
-                            {analysisHistory.map((h, i) => (
-                                <button key={i} onClick={() => { setAnalysis(h.parsed); setLastRun(h.time); setOpen({ assessment: true, doing_well: true, attention: true, actions: true, motivation: true }); setShowHistory(false); }}
-                                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
-                                    <span className="text-xs text-slate-400">{h.date} · {h.time}</span>
-                                    <span className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Restore</span>
-                                </button>
+                    {/* Loading skeleton */}
+                    {loading && (
+                        <div className="flex flex-col gap-4">
+                            {SECTIONS.map((s, i) => (
+                                <Card key={i}>
+                                    <CardBody className="flex flex-col gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-xl bg-[var(--surface-hover)]" />
+                                            <div className="h-3.5 bg-[var(--surface-hover)] rounded-full w-36" />
+                                        </div>
+                                        <SkeletonText lines={3} />
+                                    </CardBody>
+                                </Card>
                             ))}
                         </div>
-                    </motion.div>
-                )}
-                </AnimatePresence>
+                    )}
 
-                {/* Error */}
-                {tab === "analysis" && error && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className="glass-card rounded-2xl p-4 mb-6 border border-red-500/30 flex items-center gap-3">
-                        <AlertTriangle size={16} className="text-red-400 shrink-0" />
-                        <p className="text-red-400 text-sm font-mono">{error}</p>
-                    </motion.div>
-                )}
-
-                {/* Loading skeleton */}
-                {tab === "analysis" && loading && (
-                    <div className="space-y-4">
-                        {SECTIONS.map((s, i) => (
-                            <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-                                className="glass-card rounded-2xl p-5 animate-pulse">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-8 h-8 rounded-xl bg-slate-800" />
-                                    <div className="h-3.5 bg-slate-800 rounded-full w-36" />
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="h-2.5 bg-slate-800/70 rounded-full w-full" />
-                                    <div className="h-2.5 bg-slate-800/70 rounded-full w-5/6" />
-                                    <div className="h-2.5 bg-slate-800/70 rounded-full w-4/6" />
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Chat Mode */}
-                <AnimatePresence mode="wait">
-                {tab === "chat" && (
-                    <motion.div key="chat" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                        <div className="glass-card rounded-2xl border border-white/5 flex flex-col" style={{ height: "520px" }}>
-                            {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                                {chatMessages.map((msg, i) => (
-                                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                                        {msg.role === "assistant" && (
-                                            <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mr-2 mt-0.5"
-                                                style={{ background: "rgba(34,211,238,0.12)", border: "1px solid rgba(61,82,160,0.3)" }}>
-                                                <Bot size={13} className="text-cyan-400" />
-                                            </div>
-                                        )}
-                                        <div className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-6 whitespace-pre-wrap"
-                                            style={msg.role === "user"
-                                                ? { background: "rgba(112,145,230,0.15)", border: "1px solid rgba(112,145,230,0.3)", color: "#3D52A0" }
-                                                : { background: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.06)", color: "#3D52A0" }}>
-                                            {msg.content}
-                                        </div>
-                                    </div>
-                                ))}
-                                {chatLoading && (
-                                    <div className="flex justify-start">
-                                        <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mr-2"
-                                            style={{ background: "rgba(34,211,238,0.12)", border: "1px solid rgba(61,82,160,0.3)" }}>
-                                            <Bot size={13} className="text-cyan-400" />
-                                        </div>
-                                        <div className="px-4 py-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                                            <Loader2 size={15} className="animate-spin text-cyan-400" />
-                                        </div>
-                                    </div>
-                                )}
-                                <div ref={chatEndRef} />
-                            </div>
-                            {/* Quick Ask */}
-                            <div className="px-4 pt-3 pb-2 flex gap-2 flex-wrap border-t border-white/5">
-                                {["How are my habits?", "Rate my week", "What to focus on?", "Money advice", "Motivate me"].map(q => (
-                                    <button key={q} type="button" onClick={() => quickAsk(q)}
-                                        className="text-[11px] px-3 py-1.5 rounded-full font-medium transition-all duration-200"
-                                        style={{ background: "rgba(34,211,238,0.07)", border: "1px solid rgba(34,211,238,0.18)", color: "#67e8f9" }}>
-                                        {q}
-                                    </button>
-                                ))}
-                            </div>
-                            {/* Input */}
-                            <form onSubmit={sendMessage} className="p-4 border-t border-white/5 flex gap-3">
-                                <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-                                    placeholder="Ask your coach anything..."
-                                    className="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-600 outline-none px-4 py-2.5 rounded-xl"
-                                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }} />
-                                <button type="submit" disabled={chatLoading || !chatInput.trim()}
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 disabled:opacity-40"
-                                    style={{ background: "rgba(61,82,160,0.15)", border: "1px solid rgba(34,211,238,0.3)" }}>
-                                    <Send size={15} className="text-cyan-400" />
-                                </button>
-                            </form>
-                        </div>
-                    </motion.div>
-                )}
-                </AnimatePresence>
-
-                {/* Results */}
-                <AnimatePresence>
-                    {tab === "analysis" && analysis && !loading && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                            {SECTIONS.map(({ key, label, color, grad, Icon, glow }, idx) => {
+                    {/* Results */}
+                    {analysis && !loading && (
+                        <div className="flex flex-col gap-4">
+                            {SECTIONS.map((section, idx) => {
+                                const { key, label, badge } = section;
                                 const content = analysis[key];
                                 if (!content) return null;
                                 const isOpen = open[key];
                                 return (
-                                    <motion.div key={key}
-                                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.07 }}
-                                        className="glass-card rounded-2xl overflow-hidden transition-all duration-300"
-                                        style={{ borderColor: color + "25", boxShadow: isOpen ? `0 0 30px ${glow}` : "none" }}>
-
-                                        {/* Header */}
-                                        <div className={`flex items-center bg-gradient-to-r ${grad}`}>
-                                            <button onClick={() => toggle(key)} className="flex-1 flex items-center gap-3 px-5 py-4 text-left">
-                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                                                    style={{ background: color + "20", border: `1px solid ${color}30` }}>
-                                                    <Icon size={15} style={{ color }} />
+                                    <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
+                                        <Card>
+                                            <div className="flex items-center">
+                                                <button onClick={() => toggle(key)} className="flex-1 flex items-center gap-3 px-5 py-4 text-left">
+                                                    <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${ICON_TOKENS[badge]}`}>
+                                                        <section.Icon size={15} />
+                                                    </span>
+                                                    <span className="font-semibold text-sm text-[var(--text)]">{label}</span>
+                                                </button>
+                                                <div className="flex items-center gap-1.5 pr-4">
+                                                    <IconButton label="Copy section" size="sm" onClick={() => copySection(key, content)}>
+                                                        {copiedKey === key ? <Check size={13} className="text-accent" /> : <Copy size={13} />}
+                                                    </IconButton>
+                                                    <IconButton label={isOpen ? "Collapse" : "Expand"} size="sm" onClick={() => toggle(key)}>
+                                                        {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                    </IconButton>
                                                 </div>
-                                                <span className="ai-title font-bold text-sm tracking-wide" style={{ color }}>{label}</span>
-                                            </button>
-                                            <div className="flex items-center gap-1.5 pr-4">
-                                                <button onClick={() => copySection(key, content)}
-                                                    className="w-6 h-6 rounded-lg flex items-center justify-center transition-all"
-                                                    style={{ background: color + "15", border: `1px solid ${color}20` }}>
-                                                    {copiedKey === key ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} style={{ color }} />}
-                                                </button>
-                                                <button onClick={() => toggle(key)}
-                                                    className="w-6 h-6 rounded-lg flex items-center justify-center"
-                                                    style={{ background: color + "15", border: `1px solid ${color}20` }}>
-                                                    {isOpen ? <ChevronUp size={13} style={{ color }} /> : <ChevronDown size={13} style={{ color }} />}
-                                                </button>
                                             </div>
-                                        </div>
-
-                                        {/* Content */}
-                                        <AnimatePresence>
-                                            {isOpen && (
-                                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-                                                    <div className="px-5 py-5 border-t" style={{ borderColor: color + "15" }}>
-                                                        <div className="section-content text-sm text-slate-300 leading-7 whitespace-pre-wrap"
-                                                            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}>
-                                                            {content}
+                                            <AnimatePresence>
+                                                {isOpen && (
+                                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                                        <div className="px-5 py-5 border-t border-[var(--border)]">
+                                                            <div className="text-sm text-[var(--text)] leading-7 whitespace-pre-wrap">{content}</div>
                                                         </div>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </Card>
                                     </motion.div>
                                 );
                             })}
 
-                            {/* Footer */}
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                                className="text-center pt-4 pb-2">
-                                <p className="text-xs text-slate-700 font-mono">Analysis generated by Gemini · 3.6 Flash · {new Date().toLocaleDateString()}</p>
-                            </motion.div>
-                        </motion.div>
+                            <p className="text-center text-xs text-[var(--text-muted)] pt-2">
+                                Analysis generated by Gemini · 3.6 Flash · {new Date().toLocaleDateString()}
+                            </p>
+                        </div>
                     )}
-                </AnimatePresence>
-            </div>
-        </motion.div>
+
+                    {!analysis && !loading && !error && (
+                        <EmptyState
+                            icon={<Sparkles size={22} />}
+                            title="No analysis yet"
+                            message="Run an analysis to get a personalised breakdown of your day and life progress."
+                        />
+                    )}
+                </>
+            )}
+
+            {tab === "chat" && (
+                <Card className="flex flex-col" style={{ height: "560px" }}>
+                    <CardHeader title="Chat with your Coach" icon={<MessageCircle size={16} />} />
+
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+                        {chatMessages.length === 0 ? (
+                            <EmptyState
+                                icon={<Bot size={22} />}
+                                title="No messages yet"
+                                message="Ask your coach anything about your goals, habits, or progress."
+                            />
+                        ) : (
+                            chatMessages.map((msg, i) => (
+                                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    {msg.role === "assistant" && (
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mr-2 mt-0.5 bg-primary/10 text-primary">
+                                            <Bot size={13} />
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-6 whitespace-pre-wrap ${
+                                            msg.role === "user" ? "bg-primary text-white" : "bg-[var(--surface-hover)] text-[var(--text)]"
+                                        }`}
+                                    >
+                                        {msg.content}
+                                    </div>
+                                    {msg.role === "user" && (
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-2 mt-0.5 bg-secondary/10 text-secondary">
+                                            <User size={13} />
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                        {chatLoading && (
+                            <div className="flex justify-start">
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mr-2 bg-primary/10 text-primary">
+                                    <Bot size={13} />
+                                </div>
+                                <div className="px-4 py-3 rounded-2xl bg-[var(--surface-hover)] w-40">
+                                    <SkeletonText lines={2} />
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Quick Ask */}
+                    <div className="px-4 pt-3 pb-2 flex gap-2 flex-wrap border-t border-[var(--border)]">
+                        {["How are my habits?", "Rate my week", "What to focus on?", "Money advice", "Motivate me"].map(q => (
+                            <button
+                                key={q}
+                                type="button"
+                                onClick={() => quickAsk(q)}
+                                className="text-[11px] px-3 py-1.5 rounded-full font-medium bg-primary/5 border border-primary/15 text-primary hover:bg-primary/10 transition-colors"
+                            >
+                                {q}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Input */}
+                    <form onSubmit={sendMessage} className="p-4 border-t border-[var(--border)] flex gap-3 items-start">
+                        <div className="flex-1">
+                            <Input
+                                value={chatInput}
+                                onChange={e => setChatInput(e.target.value)}
+                                placeholder="Ask your coach anything..."
+                            />
+                        </div>
+                        <Button type="submit" disabled={chatLoading || !chatInput.trim()} icon={<Send size={15} />} aria-label="Send message">
+                            Send
+                        </Button>
+                    </form>
+                </Card>
+            )}
+        </div>
     );
 }
