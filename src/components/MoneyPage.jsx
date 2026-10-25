@@ -1,25 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import {
-    PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, IndianRupee, Search, Filter,
-    Plus, PlusCircle, CheckCircle2, Edit2, Trash2, X, ShoppingCart, Check, AlertCircle, Minus,
-    ArrowUp, Wallet, Percent, RefreshCw, Eye, ScanLine, Loader2,
+    IndianRupee, Edit2, Trash2, ShoppingCart, Check,
+    TrendingUp, TrendingDown, ArrowUp, Minus, AlertCircle,
 } from "lucide-react";
-import CloudinaryUpload from "./CloudinaryUpload";
-import Chart from "react-apexcharts";
-import { motion, AnimatePresence } from "framer-motion";
+import { IconButton, Badge, Tabs, SkeletonCard, useToast } from "./ui";
+import { supabase } from "../supabase";
+
+import TransactionsTab from "./money/TransactionsTab";
+import LedgerFilterTab from "./money/LedgerFilterTab";
+import BudgetViewTab from "./money/BudgetViewTab";
+import BudgetPlanTab from "./money/BudgetPlanTab";
+import ShoppingTab from "./money/ShoppingTab";
 import {
-    Button, IconButton, Input, DateField, Select, Card, CardHeader, CardBody, Badge, KpiCard, Table,
-    Modal, ConfirmDialog, useToast, Tabs, EmptyState, SkeletonCard,
-} from "./ui";
+    TransactionModal, DeleteTransactionDialog, ShoppingItemModal, ScanReviewModal, ImageLightbox,
+} from "./money/MoneyModals";
 
-const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
-const supabaseAnonKey =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI";
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-const GEMINI_API_KEY = "AQ.Ab8RN6LW2yl3vp7Aib0zssqdloHPwuKr3DFqsVPzwxQR9vhoHA";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
@@ -840,844 +836,130 @@ export default function MoneyPage() {
                 onChange={setActiveTab}
             />
 
-            {/* ===================== TRANSACTIONS TAB ===================== */}
             {activeTab === "transactions" && (
-                <AnimatePresence mode="wait">
-                    <motion.div key="transactions" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div>
-                                <h2 className="text-lg font-semibold text-[var(--text)]">Overview</h2>
-                                <p className="text-sm text-[var(--text-muted)]">Your income, expenses and balance at a glance.</p>
-                            </div>
-                            <div className="flex gap-2 flex-wrap">
-                                <Button
-                                    variant="secondary"
-                                    icon={scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
-                                    disabled={scanning}
-                                    onClick={() => scanFileRef.current.click()}
-                                >
-                                    {scanning ? "Scanning..." : "Scan Bill"}
-                                </Button>
-                                <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(v => !v)}>
-                                    New Transaction
-                                </Button>
-                            </div>
-                        </div>
-
-                        {scanError && <p className="text-sm text-danger text-center">{scanError}</p>}
-
-                        {/* Balance Overview */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <KpiCard
-                                icon={<Wallet size={18} />}
-                                label="Net Balance"
-                                value={`₹${balanceDetails.totalBalance.toLocaleString()}`}
-                                tone={balanceDetails.totalBalance >= 0 ? 'primary' : 'danger'}
-                            />
-                            <KpiCard
-                                icon={<TrendingUp size={18} />}
-                                label="Total Income"
-                                value={`₹${balanceDetails.totalIncome.toLocaleString()}`}
-                                tone="accent"
-                            />
-                            <KpiCard
-                                icon={<TrendingDown size={18} />}
-                                label="Total Expenses"
-                                value={`₹${balanceDetails.totalExpense.toLocaleString()}`}
-                                tone="danger"
-                            />
-                        </div>
-
-                        {/* Charts */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <Card>
-                                <CardHeader title="Expenses by Category" icon={<PieChartIcon size={16} />} />
-                                <CardBody>
-                                    {expenseData.series?.length > 0 ? (
-                                        <div className="h-[280px] w-full">
-                                            <Chart options={expenseData.options} series={expenseData.series} type="donut" height="100%" />
-                                        </div>
-                                    ) : (
-                                        <EmptyState icon={<PieChartIcon size={18} />} title="No expenses yet" message="Add an expense transaction to see the breakdown." />
-                                    )}
-                                </CardBody>
-                            </Card>
-
-                            <Card>
-                                <CardHeader title="Income by Category" icon={<BarChart3 size={16} />} />
-                                <CardBody>
-                                    {incomeData.series?.[0]?.data?.length > 0 ? (
-                                        <div className="h-[280px] w-full">
-                                            <Chart options={incomeData.options} series={incomeData.series} type="bar" height="100%" />
-                                        </div>
-                                    ) : (
-                                        <EmptyState icon={<BarChart3 size={18} />} title="No income yet" message="Add an income transaction to see the breakdown." />
-                                    )}
-                                </CardBody>
-                            </Card>
-                        </div>
-
-                        {/* Transaction Ledger */}
-                        <Card>
-                            <CardHeader
-                                title="Transaction Ledger"
-                                icon={<Filter size={16} />}
-                                action={
-                                    <div className="w-full sm:w-64">
-                                        <Input
-                                            leadingIcon={<Search size={14} />}
-                                            placeholder="Search transactions..."
-                                            value={txSearch}
-                                            onChange={(e) => setTxSearch(e.target.value)}
-                                        />
-                                    </div>
-                                }
-                            />
-                            <CardBody>
-                                <Table
-                                    columns={txColumns}
-                                    data={filteredTransactions}
-                                    rowKey={(t) => t.id}
-                                    loading={loading}
-                                    pageSize={10}
-                                    emptyState={
-                                        <EmptyState
-                                            icon={<Search size={20} />}
-                                            title={transactions.length === 0 ? "No transactions yet" : "No matching transactions"}
-                                            message={transactions.length === 0 ? "Record your first transaction to start tracking." : "Try adjusting your search or filters."}
-                                            action={transactions.length === 0 ? (
-                                                <Button variant="primary" icon={<Plus size={16} />} onClick={() => setFormOpen(true)}>New Transaction</Button>
-                                            ) : undefined}
-                                        />
-                                    }
-                                />
-                            </CardBody>
-                        </Card>
-                    </motion.div>
-                </AnimatePresence>
+                <TransactionsTab
+                    scanning={scanning}
+                    scanError={scanError}
+                    onScanClick={() => scanFileRef.current.click()}
+                    onNewTransaction={() => setFormOpen(v => !v)}
+                    balanceDetails={balanceDetails}
+                    expenseData={expenseData}
+                    incomeData={incomeData}
+                    txSearch={txSearch}
+                    setTxSearch={setTxSearch}
+                    txColumns={txColumns}
+                    filteredTransactions={filteredTransactions}
+                    loading={loading}
+                    transactionsCount={transactions.length}
+                />
             )}
 
-            {/* ===================== LEDGER FILTER TAB ===================== */}
             {activeTab === "ledger-filter" && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-                    <div className="text-center">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-info/10 text-info">
-                            <Filter size={28} />
-                        </div>
-                        <h2 className="text-lg font-semibold text-[var(--text)]">Ledger Filter</h2>
-                        <p className="text-sm text-[var(--text-muted)]">Select ledgers to see combined totals for a date range.</p>
-                    </div>
-
-                    <Card>
-                        <CardHeader title="Date Range" icon={<Filter size={16} />} />
-                        <CardBody>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <DateField label="From" className="flex-1" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
-                                <DateField label="To" className="flex-1" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
-                                {(filterFrom || filterTo) && (
-                                    <div className="flex items-end">
-                                        <Button variant="ghost" icon={<X size={14} />} onClick={() => { setFilterFrom(''); setFilterTo(''); }}>Clear</Button>
-                                    </div>
-                                )}
-                            </div>
-                        </CardBody>
-                    </Card>
-
-                    <Card>
-                        <CardHeader
-                            title="Select Ledgers"
-                            icon={<Filter size={16} />}
-                            action={activeLedgers.length > 0 && (
-                                <Button variant="ghost" size="sm" icon={<X size={12} />} onClick={() => setFilterLedgers([])}>Clear all</Button>
-                            )}
-                        />
-                        <CardBody>
-                            {ledgerNames.length === 0 ? (
-                                <p className="text-sm text-[var(--text-muted)]">No ledgers found. Add transactions with categories first.</p>
-                            ) : (
-                                <div className="flex flex-wrap gap-2">
-                                    {ledgerNames.map(n => {
-                                        const active = activeLedgers.includes(n);
-                                        const txCount = transactions.filter(t => (t.category || '') === n).length;
-                                        return (
-                                            <button
-                                                key={n}
-                                                onClick={() => toggleLedger(n)}
-                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                                                    active
-                                                        ? 'bg-primary/10 border-primary/30 text-primary'
-                                                        : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                                                }`}
-                                            >
-                                                {active && <CheckCircle2 size={12} />}
-                                                {n}
-                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${active ? 'bg-primary/15' : 'bg-[var(--border)]'}`}>{txCount}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </CardBody>
-                    </Card>
-
-                    {activeLedgers.length === 0 ? (
-                        <Card><EmptyState icon={<Filter size={20} />} title="No ledgers selected" message="Select ledgers above to view totals." /></Card>
-                    ) : (
-                        <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {activeLedgers.map((ledger, idx) => {
-                                    const txns = transactions.filter(t => (t.category || '') === ledger && matchDate(t));
-                                    const inc = txns.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-                                    const exp = txns.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-                                    const net = inc - exp;
-                                    const color = CHART_COLORS[idx % CHART_COLORS.length];
-                                    return (
-                                        <Card key={ledger} className="p-4">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h3 className="font-semibold text-sm truncate" style={{ color }}>{ledger}</h3>
-                                                <span className="text-xs text-[var(--text-muted)] bg-[var(--surface-hover)] px-2 py-0.5 rounded-full">{txns.length} txn{txns.length !== 1 ? 's' : ''}</span>
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-[var(--text-muted)]">Income</span>
-                                                    <span className="font-semibold text-accent">₹{inc.toLocaleString()}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-[var(--text-muted)]">Expense</span>
-                                                    <span className="font-semibold text-danger">₹{exp.toLocaleString()}</span>
-                                                </div>
-                                                <div className="pt-1.5 mt-1 border-t border-[var(--border)] flex justify-between items-center">
-                                                    <span className="text-xs text-[var(--text-muted)]">Net</span>
-                                                    <span className={`font-bold ${net >= 0 ? 'text-primary' : 'text-danger'}`}>₹{net.toLocaleString()}</span>
-                                                </div>
-                                            </div>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-
-                            {activeLedgers.length > 1 && (
-                                <Card>
-                                    <CardHeader title={`Combined Total — ${activeLedgers.length} Ledgers`} icon={<Filter size={16} />} />
-                                    <CardBody>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            <div className="text-center">
-                                                <p className="text-xs text-[var(--text-muted)] mb-1">Total Income</p>
-                                                <p className="text-xl font-bold text-accent">₹{ledgerFilterIncome.toLocaleString()}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-xs text-[var(--text-muted)] mb-1">Total Expense</p>
-                                                <p className="text-xl font-bold text-danger">₹{ledgerFilterExpense.toLocaleString()}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-xs text-[var(--text-muted)] mb-1">Net Balance</p>
-                                                <p className={`text-xl font-bold ${ledgerFilterIncome - ledgerFilterExpense >= 0 ? 'text-primary' : 'text-danger'}`}>
-                                                    ₹{(ledgerFilterIncome - ledgerFilterExpense).toLocaleString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </CardBody>
-                                </Card>
-                            )}
-                        </>
-                    )}
-                </motion.div>
+                <LedgerFilterTab
+                    filterFrom={filterFrom} setFilterFrom={setFilterFrom}
+                    filterTo={filterTo} setFilterTo={setFilterTo}
+                    ledgerNames={ledgerNames}
+                    activeLedgers={activeLedgers}
+                    toggleLedger={toggleLedger}
+                    setFilterLedgers={setFilterLedgers}
+                    transactions={transactions}
+                    matchDate={matchDate}
+                    CHART_COLORS={CHART_COLORS}
+                    ledgerFilterIncome={ledgerFilterIncome}
+                    ledgerFilterExpense={ledgerFilterExpense}
+                />
             )}
 
-            {/* ===================== BUDGET VIEW TAB ===================== */}
             {activeTab === "budget-view" && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-                    <div className="text-center">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-accent/10 text-accent">
-                            <Eye size={28} />
-                        </div>
-                        <h2 className="text-lg font-semibold text-[var(--text)]">Budget Analysis</h2>
-                        <p className="text-sm text-[var(--text-muted)]">Financial allocation overview for your active budget plan.</p>
-                    </div>
-
-                    {budgetSaved ? (
-                        <>
-                            <Card>
-                                <CardHeader
-                                    title="Active Budget Plan"
-                                    icon={<Wallet size={16} />}
-                                    action={
-                                        <div className="text-right">
-                                            <p className="text-xs text-[var(--text-muted)]">Monthly Income</p>
-                                            <p className="text-lg font-bold text-accent">₹{Number(budgetSaved.income).toLocaleString()}</p>
-                                        </div>
-                                    }
-                                />
-                                <CardBody className="flex flex-col gap-6">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                        {budgetSaved.ledgers.map((ledger, i) => {
-                                            const savedAmount = ledger.amount || ((Number(budgetSaved.income) * Number(ledger.percent)) / 100);
-                                            const color = CHART_COLORS[i % CHART_COLORS.length];
-                                            return (
-                                                <Card key={i} className="p-4">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <h4 className="text-sm font-medium text-[var(--text)] truncate">{ledger.name}</h4>
-                                                        <Badge variant="success">{ledger.percent}%</Badge>
-                                                    </div>
-                                                    <div className="text-xl font-bold text-[var(--text)] mb-1">
-                                                        ₹{savedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                    </div>
-                                                    <div className="text-xs text-[var(--text-muted)] mb-3">per month</div>
-                                                    <div className="h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden mb-2">
-                                                        <div
-                                                            className="h-full rounded-full transition-all duration-500"
-                                                            style={{ width: `${Math.min(ledger.percent, 100)}%`, background: color }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex justify-between text-xs text-[var(--text-muted)]">
-                                                        <span>Daily: ₹{(savedAmount / 30).toFixed(0)}</span>
-                                                        <span>Weekly: ₹{(savedAmount / 4.33).toFixed(0)}</span>
-                                                    </div>
-                                                </Card>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {(() => {
-                                        const totalPercent = budgetSaved.ledgers.reduce((s, l) => s + Number(l.percent), 0);
-                                        const totalAllocated = budgetSaved.ledgers.reduce((s, l) => s + (Number(l.amount) || ((Number(budgetSaved.income) * Number(l.percent)) / 100)), 0);
-                                        const remaining = Number(budgetSaved.income) - totalAllocated;
-                                        return (
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <KpiCard icon={<Wallet size={18} />} label="Total Allocated" value={`₹${totalAllocated.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone="accent" footer={<span className="text-xs text-[var(--text-muted)]">{totalPercent.toFixed(1)}% of income</span>} />
-                                                <KpiCard icon={<Percent size={18} />} label="Remaining" value={`₹${Math.abs(remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone={remaining >= 0 ? 'primary' : 'danger'} footer={<span className="text-xs text-[var(--text-muted)]">{remaining >= 0 ? 'Available' : 'Over budget'}</span>} />
-                                                <KpiCard icon={<RefreshCw size={18} />} label="Ledgers" value={budgetSaved.ledgers.length} tone="warning" footer={<span className="text-xs text-[var(--text-muted)]">Active categories</span>} />
-                                            </div>
-                                        );
-                                    })()}
-                                </CardBody>
-                            </Card>
-
-                            <Card>
-                                <CardHeader title="Budget Allocation Breakdown" icon={<PieChartIcon size={16} />} />
-                                <CardBody>
-                                    {(() => {
-                                        const chartData = {
-                                            series: budgetSaved.ledgers.map(l => l.amount || ((Number(budgetSaved.income) * Number(l.percent)) / 100)),
-                                            options: {
-                                                chart: { type: 'donut', background: 'transparent', foreColor: '#64748b' },
-                                                labels: budgetSaved.ledgers.map(l => l.name),
-                                                colors: CHART_COLORS,
-                                                stroke: { show: true, colors: ['#ffffff'], width: 2 },
-                                                dataLabels: { enabled: false },
-                                                legend: { position: 'bottom', labels: { colors: '#64748b' } },
-                                                plotOptions: {
-                                                    pie: {
-                                                        donut: {
-                                                            size: '70%',
-                                                            background: 'transparent',
-                                                            labels: {
-                                                                show: true,
-                                                                name: { show: true, fontSize: '12px', color: '#64748b' },
-                                                                value: { show: true, fontSize: '20px', fontWeight: 'bold', color: '#0f172a', formatter: (val) => `₹${Number(val).toLocaleString()}` },
-                                                                total: { show: true, label: 'BUDGET', color: '#64748b', formatter: () => `₹${Number(budgetSaved.income).toLocaleString()}` }
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                tooltip: { theme: 'light', y: { formatter: (val) => `₹${val.toLocaleString()}` } }
-                                            }
-                                        };
-                                        return (
-                                            <div className="h-[360px] w-full">
-                                                <Chart options={chartData.options} series={chartData.series} type="donut" height="100%" />
-                                            </div>
-                                        );
-                                    })()}
-                                </CardBody>
-                            </Card>
-
-                            <Card>
-                                <CardHeader title="Quick Actions" icon={<Plus size={16} />} />
-                                <CardBody>
-                                    <div className="flex flex-wrap gap-3">
-                                        <Button variant="secondary" onClick={startEditBudget}>Edit Budget Plan</Button>
-                                        <Button variant="ghost" onClick={() => setActiveTab("transactions")}>View Transactions</Button>
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        </>
-                    ) : (
-                        <Card>
-                            <EmptyState
-                                icon={<Wallet size={20} />}
-                                title="No budget plan found"
-                                message="Create a budget plan to view analysis."
-                                action={<Button variant="primary" onClick={() => setActiveTab("budget")}>Create Budget Plan</Button>}
-                            />
-                        </Card>
-                    )}
-                </motion.div>
+                <BudgetViewTab
+                    budgetSaved={budgetSaved}
+                    CHART_COLORS={CHART_COLORS}
+                    onEditBudget={startEditBudget}
+                    onViewTransactions={() => setActiveTab("transactions")}
+                    onCreateBudget={() => setActiveTab("budget")}
+                />
             )}
 
-            {/* ===================== BUDGET TAB ===================== */}
             {activeTab === "budget" && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-                    <div className="text-center">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-warning/10 text-warning">
-                            <Wallet size={28} />
-                        </div>
-                        <h2 className="text-lg font-semibold text-[var(--text)]">Budget Plan</h2>
-                        <p className="text-sm text-[var(--text-muted)]">Split your income into ledgers.</p>
-                    </div>
-
-                    {budgetDraft && (
-                        <Card className="p-4 flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <Badge variant="neutral">Draft</Badge>
-                                <span className="text-sm text-[var(--text)]">
-                                    Income: <span className="font-semibold text-warning">₹{Number(budgetDraft.income || 0).toLocaleString()}</span>
-                                    <span className="text-[var(--text-muted)] mx-2">·</span>
-                                    {budgetDraft.ledgers?.filter(l => l.name).length || 0} ledger{(budgetDraft.ledgers?.filter(l => l.name).length || 0) !== 1 ? 's' : ''}
-                                </span>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="secondary" size="sm" onClick={loadBudgetDraft}>Load Draft</Button>
-                                <Button variant="ghost" size="sm" onClick={clearBudgetDraft}>Clear</Button>
-                            </div>
-                        </Card>
-                    )}
-
-                    {budgetSaved && (
-                        <Card>
-                            <CardHeader
-                                title="Active Budget Plan"
-                                icon={<Wallet size={16} />}
-                                action={<span className="text-sm text-[var(--text-muted)]">Total Income: <span className="font-semibold text-accent">₹{Number(budgetSaved.income).toLocaleString()}</span></span>}
-                            />
-                            <CardBody className="flex flex-col gap-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {budgetSaved.ledgers.map((l, i) => {
-                                        const savedAmount = l.amount || ((Number(budgetSaved.income) * Number(l.percent)) / 100);
-                                        return (
-                                            <Card key={i} className="p-3.5">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm font-medium text-[var(--text)]">{l.name}</span>
-                                                    <span className="text-xs text-warning font-medium">{l.percent}%</span>
-                                                </div>
-                                                <div className="text-lg font-bold text-[var(--text)]">₹{savedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                                                <div className="mt-2 h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden">
-                                                    <div className="h-full rounded-full bg-warning" style={{ width: `${Math.min(l.percent, 100)}%` }} />
-                                                </div>
-                                            </Card>
-                                        );
-                                    })}
-                                </div>
-                                {(() => {
-                                    const total = budgetSaved.ledgers.reduce((s, l) => s + Number(l.percent), 0);
-                                    return total !== 100
-                                        ? <p className="text-xs text-danger flex items-center gap-1"><AlertCircle size={12} /> Ledgers sum to {total}% (should be 100%)</p>
-                                        : <p className="text-xs text-accent flex items-center gap-1"><CheckCircle2 size={12} /> 100% allocated</p>;
-                                })()}
-                            </CardBody>
-                        </Card>
-                    )}
-
-                    <Card>
-                        <CardHeader title={budgetEditMode || budgetSaved ? "Update Budget Plan" : "Create Budget Plan"} icon={<Percent size={16} />} />
-                        <CardBody>
-                            <form onSubmit={saveBudgetPlan} className="flex flex-col gap-6">
-                                <Input
-                                    label="Total Monthly Income (₹)"
-                                    required
-                                    type="number" min="0" step="0.01" placeholder="e.g. 50000"
-                                    className="md:w-64"
-                                    value={budgetIncome}
-                                    onChange={(e) => updateIncome(e.target.value)}
-                                />
-
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <label className="text-sm font-medium text-[var(--text)]">Ledgers (must total 100%)</label>
-                                        <div className="flex gap-2 flex-wrap">
-                                            <Button type="button" variant="secondary" size="sm" icon={<RefreshCw size={12} />} onClick={loadCategoriesIntoBudget}>Sync Categories</Button>
-                                            <Button type="button" variant="secondary" size="sm" icon={<Plus size={12} />} onClick={() => setBudgetLedgers(l => [...l, { name: "", percent: "", amount: "" }])}>Add Ledger</Button>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-3">
-                                        {budgetLedgers.map((l, i) => (
-                                            <div key={i} className="flex flex-col sm:flex-row gap-2 sm:items-end p-3 rounded-xl bg-[var(--surface-hover)] sm:bg-transparent sm:p-0">
-                                                <div className="flex-1">
-                                                    <Input
-                                                        label={i === 0 ? "Ledger Name" : undefined}
-                                                        placeholder="e.g. Savings"
-                                                        value={l.name}
-                                                        onChange={(e) => setBudgetLedgers(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                                                        list={`categories-${i}`}
-                                                    />
-                                                    <datalist id={`categories-${i}`}>
-                                                        {categories.map(cat => <option key={cat} value={cat} />)}
-                                                    </datalist>
-                                                </div>
-                                                <div className="w-full sm:w-36">
-                                                    <Input
-                                                        label={i === 0 ? "Amount (₹)" : undefined}
-                                                        type="number" min="0" step="1" placeholder="Amount"
-                                                        value={l.amount}
-                                                        onChange={(e) => updateLedgerAmount(i, e.target.value)}
-                                                    />
-                                                </div>
-                                                <div className="w-full sm:w-28">
-                                                    <Input
-                                                        label={i === 0 ? "Percent" : undefined}
-                                                        type="number" min="0" max="100" step="0.1" placeholder="%"
-                                                        value={l.percent}
-                                                        onChange={(e) => updateLedgerPercent(i, e.target.value)}
-                                                    />
-                                                </div>
-                                                {budgetLedgers.length > 1 && (
-                                                    <IconButton label="Remove ledger" variant="danger" onClick={() => setBudgetLedgers(ls => ls.filter((_, j) => j !== i))}>
-                                                        <X size={14} />
-                                                    </IconButton>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {budgetLedgers.some(l => l.percent || l.amount) && (() => {
-                                        const totalPercent = budgetLedgers.reduce((s, l) => s + (Number(l.percent) || 0), 0);
-                                        const totalAmount = budgetLedgers.reduce((s, l) => s + (Number(l.amount) || 0), 0);
-                                        const income = Number(budgetIncome) || 0;
-                                        return (
-                                            <div className="p-3 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)]">
-                                                <div className="grid grid-cols-2 gap-4 text-xs">
-                                                    <div>
-                                                        <span className="text-[var(--text-muted)]">Total Allocated: </span>
-                                                        <span className={totalAmount === income ? 'text-accent' : totalAmount > income ? 'text-danger' : 'text-warning'}>₹{totalAmount.toLocaleString()}</span>
-                                                        {income > 0 && <span className="text-[var(--text-muted)] ml-2">({totalAmount > 0 ? ((totalAmount / income) * 100).toFixed(1) : '0'}%)</span>}
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="text-[var(--text-muted)]">Remaining: </span>
-                                                        <span className={income - totalAmount >= 0 ? 'text-accent' : 'text-danger'}>₹{(income - totalAmount).toLocaleString()}</span>
-                                                    </div>
-                                                </div>
-                                                {totalPercent !== 100 && (
-                                                    <p className={`mt-2 text-xs ${totalPercent === 100 ? 'text-accent' : 'text-warning'}`}>
-                                                        Percentage Total: {totalPercent.toFixed(1)}% {totalPercent === 100 ? '✓' : `(${100 - totalPercent > 0 ? `${(100 - totalPercent).toFixed(1)}% remaining` : `${(totalPercent - 100).toFixed(1)}% over`})`}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-
-                                <div className="flex flex-wrap gap-3">
-                                    <Button type="submit" variant="primary" loading={budgetLoading}>{budgetEditMode ? "Update Budget Plan" : "Save Budget Plan"}</Button>
-                                    {budgetEditMode && <Button type="button" variant="secondary" onClick={cancelEditBudget}>Cancel Edit</Button>}
-                                    <Button type="button" variant="ghost" onClick={saveBudgetDraft}>Save as Draft</Button>
-                                </div>
-                            </form>
-                        </CardBody>
-                    </Card>
-                </motion.div>
+                <BudgetPlanTab
+                    budgetDraft={budgetDraft}
+                    loadBudgetDraft={loadBudgetDraft}
+                    clearBudgetDraft={clearBudgetDraft}
+                    budgetSaved={budgetSaved}
+                    budgetEditMode={budgetEditMode}
+                    budgetIncome={budgetIncome}
+                    updateIncome={updateIncome}
+                    budgetLedgers={budgetLedgers}
+                    setBudgetLedgers={setBudgetLedgers}
+                    categories={categories}
+                    loadCategoriesIntoBudget={loadCategoriesIntoBudget}
+                    updateLedgerAmount={updateLedgerAmount}
+                    updateLedgerPercent={updateLedgerPercent}
+                    saveBudgetPlan={saveBudgetPlan}
+                    budgetLoading={budgetLoading}
+                    cancelEditBudget={cancelEditBudget}
+                    saveBudgetDraft={saveBudgetDraft}
+                />
             )}
 
-            {/* ===================== SHOPPING TAB ===================== */}
             {activeTab === "shopping" && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-                    <div className="text-center">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 bg-secondary/10 text-secondary">
-                            <ShoppingCart size={28} />
-                        </div>
-                        <h2 className="text-lg font-semibold text-[var(--text)]">Shopping Plan</h2>
-                        <p className="text-sm text-[var(--text-muted)]">Plan before you spend.</p>
-                    </div>
-
-                    <Card>
-                        <CardHeader title="Add Shopping Item" icon={<ShoppingCart size={16} />} />
-                        <CardBody>
-                            <form onSubmit={addShoppingItem} className="grid gap-4 md:grid-cols-3">
-                                <Input label="Item Name" required placeholder="e.g. Groceries, Shoes" value={shopForm.name} onChange={(e) => setShopForm({ ...shopForm, name: e.target.value })} />
-                                <Input label="Est. Amount (₹)" required type="number" min="0" step="0.01" placeholder="0.00" value={shopForm.amount} onChange={(e) => setShopForm({ ...shopForm, amount: e.target.value })} />
-                                <Select label="Priority" value={shopForm.priority} onChange={(e) => setShopForm({ ...shopForm, priority: e.target.value })}>
-                                    <option value="high">High</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="low">Low</option>
-                                </Select>
-                                <Input label="Quantity" type="number" min="0" step="0.01" placeholder="e.g. 2" value={shopForm.quantity} onChange={(e) => setShopForm({ ...shopForm, quantity: e.target.value })} />
-                                <Select label="Unit" value={shopForm.unit} onChange={(e) => setShopForm({ ...shopForm, unit: e.target.value })}>
-                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                </Select>
-                                <div className="md:col-span-3">
-                                    <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">Item Image</label>
-                                    <CloudinaryUpload label="Upload Image" currentUrl={shopForm.image_url} onUpload={(url) => setShopForm(f => ({ ...f, image_url: url }))} />
-                                </div>
-                                <div className="flex items-end md:col-start-3">
-                                    <Button type="submit" variant="primary" className="w-full" loading={shopLoading} icon={<Plus size={14} />}>Add to Plan</Button>
-                                </div>
-                            </form>
-                        </CardBody>
-                    </Card>
-
-                    <Card>
-                        <CardHeader
-                            title="Shopping List"
-                            icon={<ShoppingCart size={16} />}
-                            action={
-                                <div className="flex items-center gap-4">
-                                    <div className="w-56 hidden sm:block">
-                                        <Input leadingIcon={<Search size={14} />} placeholder="Search items..." value={shopSearch} onChange={(e) => setShopSearch(e.target.value)} />
-                                    </div>
-                                    {shoppingPlans.length > 0 && (
-                                        <span className="font-semibold text-secondary text-sm whitespace-nowrap">
-                                            Total ₹{shoppingPlans.reduce((s, i) => s + Number(i.amount), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </span>
-                                    )}
-                                </div>
-                            }
-                        />
-                        <CardBody>
-                            <div className="sm:hidden mb-4">
-                                <Input leadingIcon={<Search size={14} />} placeholder="Search items..." value={shopSearch} onChange={(e) => setShopSearch(e.target.value)} />
-                            </div>
-                            <Table
-                                columns={shopColumns}
-                                data={visibleShopItems}
-                                rowKey={(item) => item.id}
-                                pageSize={10}
-                                emptyState={<EmptyState icon={<ShoppingCart size={20} />} title="No items in shopping plan" message="Add an item above to start planning your purchases." />}
-                            />
-                        </CardBody>
-                    </Card>
-
-                    {completedPlans.length > 0 && (
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={() => setShowCompleted(v => !v)}
-                                className="flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors w-fit"
-                            >
-                                <CheckCircle2 size={14} className="text-accent" />
-                                {showCompleted ? 'Hide' : 'Show'} Completed ({completedPlans.length})
-                            </button>
-                            {showCompleted && (
-                                <Card className="opacity-80">
-                                    <CardBody className="flex flex-col divide-y divide-[var(--border)]">
-                                        {completedPlans.map((item) => (
-                                            <div key={item.id} className="py-3 flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <CheckCircle2 size={15} className="text-accent shrink-0" />
-                                                    <span className="text-[var(--text-muted)] line-through">{item.name}</span>
-                                                </div>
-                                                <span className="font-medium text-[var(--text-muted)] line-through">
-                                                    ₹{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </CardBody>
-                                </Card>
-                            )}
-                        </div>
-                    )}
-                </motion.div>
+                <ShoppingTab
+                    shopForm={shopForm} setShopForm={setShopForm}
+                    addShoppingItem={addShoppingItem}
+                    shopLoading={shopLoading}
+                    UNITS={UNITS}
+                    shopColumns={shopColumns}
+                    visibleShopItems={visibleShopItems}
+                    shopSearch={shopSearch} setShopSearch={setShopSearch}
+                    shoppingPlans={shoppingPlans}
+                    completedPlans={completedPlans}
+                    showCompleted={showCompleted} setShowCompleted={setShowCompleted}
+                />
             )}
 
-            {/* ===================== New / Edit Transaction Modal ===================== */}
-            <Modal
-                open={formOpen}
-                onClose={closeTransactionForm}
-                title={editingId ? "Update Transaction" : "New Transaction"}
-                size="md"
-                footer={
-                    <>
-                        <Button variant="secondary" onClick={closeTransactionForm}>Cancel</Button>
-                        <Button
-                            form="transaction-form"
-                            type="submit"
-                            variant="primary"
-                            loading={loading}
-                            disabled={!form.title.trim() || !form.amount}
-                            icon={editingId ? <Edit2 size={16} /> : <PlusCircle size={16} />}
-                        >
-                            {editingId ? "Save Changes" : "Add Transaction"}
-                        </Button>
-                    </>
-                }
-            >
-                <form id="transaction-form" onSubmit={createTransaction} className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                        <Input
-                            label="Title"
-                            required
-                            placeholder="e.g. Salary, Groceries, Rent"
-                            value={form.title}
-                            onChange={(e) => setForm({ ...form, title: e.target.value })}
-                        />
-                    </div>
-                    <Input
-                        label="Amount (₹)"
-                        required
-                        type="number" step="0.01" min="0" placeholder="0.00"
-                        value={form.amount}
-                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    />
-                    <Select label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                        <option value="expense">Expense</option>
-                        <option value="income">Income</option>
-                    </Select>
-
-                    <div className="sm:col-span-2">
-                        <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">Category</label>
-                        {!showNewCategory ? (
-                            <div className="flex gap-2">
-                                <div className="flex-1">
-                                    <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                                        <option value="">-- Select category --</option>
-                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </Select>
-                                </div>
-                                <IconButton label="New category" variant="accent" onClick={() => setShowNewCategory(true)}>
-                                    <Plus size={16} />
-                                </IconButton>
-                            </div>
-                        ) : (
-                            <div className="flex gap-2">
-                                <div className="flex-1">
-                                    <Input
-                                        placeholder="New category name..."
-                                        value={newCategoryInput}
-                                        onChange={(e) => setNewCategoryInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory(newCategoryInput))}
-                                        autoFocus
-                                    />
-                                </div>
-                                <IconButton label="Confirm new category" variant="accent" onClick={() => addCategory(newCategoryInput)}>
-                                    <CheckCircle2 size={16} />
-                                </IconButton>
-                                <IconButton label="Cancel new category" onClick={() => { setShowNewCategory(false); setNewCategoryInput(""); }}>
-                                    <X size={16} />
-                                </IconButton>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="sm:col-span-2">
-                        <DateField
-                            label="Date"
-                            value={form.date}
-                            onChange={(e) => setForm({ ...form, date: e.target.value })}
-                        />
-                    </div>
-                </form>
-            </Modal>
-
-            {/* ===================== Delete Transaction Confirm ===================== */}
-            <ConfirmDialog
-                open={!!deleteTxId}
-                onClose={() => setDeleteTxId(null)}
-                onConfirm={confirmDeleteTransaction}
-                title="Delete transaction"
-                message="Are you sure you want to delete this transaction? This cannot be undone."
-                confirmLabel="Delete"
+            <TransactionModal
+                formOpen={formOpen}
+                closeTransactionForm={closeTransactionForm}
+                editingId={editingId}
+                createTransaction={createTransaction}
+                loading={loading}
+                form={form}
+                setForm={setForm}
+                categories={categories}
+                showNewCategory={showNewCategory}
+                setShowNewCategory={setShowNewCategory}
+                newCategoryInput={newCategoryInput}
+                setNewCategoryInput={setNewCategoryInput}
+                addCategory={addCategory}
             />
 
-            {/* ===================== Edit Shopping Item Modal ===================== */}
-            <Modal
-                open={!!editingShopId}
-                onClose={() => setEditingShopId(null)}
-                title="Edit Shopping Item"
-                size="md"
-                footer={
-                    <>
-                        <Button variant="secondary" onClick={() => setEditingShopId(null)}>Cancel</Button>
-                        <Button form="edit-shop-form" type="submit" variant="primary" loading={shopLoading} icon={<CheckCircle2 size={16} />}>Save Changes</Button>
-                    </>
-                }
-            >
-                <form id="edit-shop-form" onSubmit={saveEditShopItem} className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                        <Input label="Name" required autoFocus value={editShopForm.name} onChange={(e) => setEditShopForm({ ...editShopForm, name: e.target.value })} />
-                    </div>
-                    <Input label="Amount (₹)" required type="number" min="0" step="0.01" value={editShopForm.amount} onChange={(e) => setEditShopForm({ ...editShopForm, amount: e.target.value })} />
-                    <Select label="Priority" value={editShopForm.priority} onChange={(e) => setEditShopForm({ ...editShopForm, priority: e.target.value })}>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </Select>
-                    <Input label="Quantity" type="number" min="0" step="0.01" value={editShopForm.quantity} onChange={(e) => setEditShopForm({ ...editShopForm, quantity: e.target.value })} />
-                    <Select label="Unit" value={editShopForm.unit} onChange={(e) => setEditShopForm({ ...editShopForm, unit: e.target.value })}>
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                    </Select>
-                    <div className="sm:col-span-2">
-                        <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">Image</label>
-                        <CloudinaryUpload label="Upload Image" currentUrl={editShopForm.image_url} onUpload={(url) => setEditShopForm(f => ({ ...f, image_url: url }))} />
-                    </div>
-                </form>
-            </Modal>
+            <DeleteTransactionDialog
+                deleteTxId={deleteTxId}
+                setDeleteTxId={setDeleteTxId}
+                confirmDeleteTransaction={confirmDeleteTransaction}
+            />
 
-            {/* ===================== Scan Bill — Review & Confirm ===================== */}
-            <Modal
-                open={!!scanReview}
-                onClose={discardScanReview}
-                title="Review Scanned Bill"
-                size="md"
-                footer={
-                    <>
-                        <Button variant="secondary" onClick={discardScanReview}>Discard</Button>
-                        <Button
-                            variant="primary"
-                            onClick={confirmScanReview}
-                            loading={scanSaving}
-                            disabled={!scanReview?.title?.trim() || !scanReview?.amount}
-                            icon={<Check size={16} />}
-                        >
-                            Confirm &amp; Add
-                        </Button>
-                    </>
-                }
-            >
-                {scanReview && (
-                    <div className="flex flex-col gap-4">
-                        {scanReview.previewUrl && (
-                            <img src={scanReview.previewUrl} alt="Scanned bill" className="w-full max-h-48 object-contain rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]" />
-                        )}
-                        <p className="text-xs text-[var(--text-muted)]">AI-extracted — please verify before saving.</p>
+            <ShoppingItemModal
+                editingShopId={editingShopId}
+                setEditingShopId={setEditingShopId}
+                saveEditShopItem={saveEditShopItem}
+                shopLoading={shopLoading}
+                UNITS={UNITS}
+                editShopForm={editShopForm}
+                setEditShopForm={setEditShopForm}
+            />
 
-                        <Input label="Title" required value={scanReview.title} onChange={(e) => setScanReview(r => ({ ...r, title: e.target.value }))} />
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input label="Amount (₹)" required type="number" step="0.01" min="0" value={scanReview.amount} onChange={(e) => setScanReview(r => ({ ...r, amount: e.target.value }))} />
-                            <Select label="Type" value={scanReview.type} onChange={(e) => setScanReview(r => ({ ...r, type: e.target.value }))}>
-                                <option value="expense">Expense</option>
-                                <option value="income">Income</option>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Input label="Category" list="scan-category-list" placeholder="e.g. Food" value={scanReview.category} onChange={(e) => setScanReview(r => ({ ...r, category: e.target.value }))} />
-                                <datalist id="scan-category-list">
-                                    {categories.map(c => <option key={c} value={c} />)}
-                                </datalist>
-                            </div>
-                            <DateField label="Date" value={scanReview.date} onChange={(e) => setScanReview(r => ({ ...r, date: e.target.value }))} />
-                        </div>
+            <ScanReviewModal
+                scanReview={scanReview}
+                setScanReview={setScanReview}
+                discardScanReview={discardScanReview}
+                confirmScanReview={confirmScanReview}
+                scanSaving={scanSaving}
+                scanError={scanError}
+                categories={categories}
+            />
 
-                        {scanError && <p className="text-sm text-danger">{scanError}</p>}
-                    </div>
-                )}
-            </Modal>
-
-            {/* ===================== Image Lightbox ===================== */}
-            {lightboxImg && (
-                <div
-                    className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-black/70"
-                    onClick={() => setLightboxImg(null)}
-                >
-                    <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <div className="absolute -top-12 right-0">
-                            <IconButton label="Close" className="bg-[var(--surface)] border border-[var(--border)]" onClick={() => setLightboxImg(null)}>
-                                <X size={20} />
-                            </IconButton>
-                        </div>
-                        <img src={lightboxImg} alt="Item" className="w-full max-h-[80vh] object-contain rounded-2xl border border-[var(--border)]" />
-                    </div>
-                </div>
-            )}
+            <ImageLightbox lightboxImg={lightboxImg} setLightboxImg={setLightboxImg} />
         </div>
     );
 }

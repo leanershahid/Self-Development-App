@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sword, Flame, Trophy, Zap, Crown, Target } from 'lucide-react';
 import { Card, Badge, KpiCard, EmptyState, Skeleton, SkeletonCard } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
+import { buildDayMap, computeStreaks, computeComebackStreak } from '../utils/todoStats';
 
 const BOSSES = [
   { id: 'week_warrior',  name: 'Week Warrior',   desc: '100% todos for 7 days straight',  days: 7,  threshold: 100, reward: '500 XP + Week Warrior Badge', color: '#22d3ee', icon: '⚔️', hp: 700 },
@@ -26,50 +22,18 @@ export default function BossChallenge() {
   const loadData = async () => {
     setLoading(true);
     const { data: todos } = await supabase.from('ToDo').select('*').order('created_at');
-    const active = (todos || []).filter(t => t.active);
-
-    const dayMap = new Map();
-    active.forEach(t => {
-      const d = t.created_at.split('T')[0];
-      if (!dayMap.has(d)) dayMap.set(d, { total: 0, done: 0 });
-      const day = dayMap.get(d);
-      day.total++;
-      if (t.completed) day.done++;
-    });
-
-    const days = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([date, d]) => ({
-      date, pct: d.total > 0 ? Math.round((d.done / d.total) * 100) : 0, done: d.done, total: d.total,
-    }));
+    const dayMap = buildDayMap(todos);
 
     const results = BOSSES.map(boss => {
-      let maxStreak = 0, curStreak = 0, streakDays = [];
-      let bestStreakDays = [];
-
-      if (boss.id === 'comeback_king') {
-        // special: 3 days 90%+ after a 0% day
-        let comboStreak = 0, comboStart = false;
-        for (let i = 1; i < days.length; i++) {
-          if (days[i - 1].pct === 0) comboStart = true;
-          if (comboStart && days[i].pct >= 90) comboStreak++;
-          else if (comboStart && days[i].pct < 90) { comboStart = false; comboStreak = 0; }
-          maxStreak = Math.max(maxStreak, comboStreak);
-        }
-        curStreak = comboStreak;
-      } else {
-        for (const day of days) {
-          if (day.pct >= boss.threshold) {
-            curStreak++;
-            streakDays.push(day);
-            if (curStreak > maxStreak) { maxStreak = curStreak; bestStreakDays = [...streakDays]; }
-          } else { curStreak = 0; streakDays = []; }
-        }
-      }
+      const { bestStreak: maxStreak, currentStreak: curStreak } = boss.id === 'comeback_king'
+        ? computeComebackStreak(dayMap, boss.threshold)
+        : computeStreaks(dayMap, boss.threshold);
 
       const defeated = maxStreak >= boss.days;
       const progress = Math.min(100, Math.round((curStreak / boss.days) * 100));
       const hpRemaining = Math.max(0, boss.hp - Math.round((curStreak / boss.days) * boss.hp));
 
-      return { ...boss, curStreak, maxStreak, defeated, progress, hpRemaining, bestStreakDays };
+      return { ...boss, curStreak, maxStreak, defeated, progress, hpRemaining };
     });
 
     setBossData(results);

@@ -11,7 +11,7 @@ const ICON_TOKENS = {
     info: "bg-info/10 text-info",
 };
 
-const GEMINI_API_KEY = "AQ.Ab8RN6LW2yl3vp7Aib0zssqdloHPwuKr3DFqsVPzwxQR9vhoHA";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const TODAY = new Date().toISOString().split("T")[0];
 
 

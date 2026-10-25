@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, Calendar, Award, Target, CheckCircle, XCircle, BarChart3, Sparkles, Zap, Activity, CircleDot, Circle, RefreshCw, Clock } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardHeader, CardBody, KpiCard, Tabs, Table, Badge, Button, Input, DateField, EmptyState, SkeletonCard, useToast } from './ui';
-
-const supabaseUrl = 'https://qwjujuvtfqahapohhfzs.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabase';
+import { getWeekRange, getMonthRange } from '../utils/todoStats';
+import AchievementProgressKpi from './AchievementProgressKpi';
 
 export default function PerformanceDashboard() {
   const toast = useToast();
@@ -36,31 +34,7 @@ export default function PerformanceDashboard() {
 
   const calculateWeeklyPoints = async () => {
     try {
-      const { data: firstTask, error: firstTaskError } = await supabase
-        .from('ToDo')
-        .select('created_at')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (firstTaskError || !firstTask) {
-        toast.error('No tasks found to calculate from');
-        return;
-      }
-
-      const firstTaskDate = new Date(firstTask.created_at);
-      const today = new Date();
-
-      const daysSinceStart = Math.floor((today - firstTaskDate) / (1000 * 60 * 60 * 24));
-      const currentWeekNumber = Math.floor(daysSinceStart / 7);
-
-      const weekStart = new Date(firstTaskDate);
-      weekStart.setDate(firstTaskDate.getDate() + (currentWeekNumber * 7));
-      weekStart.setHours(0, 0, 0, 0);
-
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
+      const { start: weekStart, end: weekEnd } = getWeekRange(0);
 
       const { data: todos, error: todosError } = await supabase
         .from('ToDo')
@@ -70,8 +44,9 @@ export default function PerformanceDashboard() {
 
       if (todosError) throw todosError;
 
-      const totalTasks = todos.length;
-      const completedTasks = todos.filter(t => t.completed && t.active).length;
+      const activeTasks = todos.filter(t => t.active);
+      const totalTasks = activeTasks.length;
+      const completedTasks = activeTasks.filter(t => t.completed).length;
 
       const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) : 0;
       const weekScore = Math.round(completionRate * 10);
@@ -119,31 +94,9 @@ export default function PerformanceDashboard() {
 
   const calculateMonthlyPoints = async () => {
     try {
-      const { data: firstTask, error: firstTaskError } = await supabase
-        .from('ToDo')
-        .select('created_at')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (firstTaskError || !firstTask) {
-        toast.error('No tasks found to calculate from');
-        return;
-      }
-
-      const firstTaskDate = new Date(firstTask.created_at);
-      const today = new Date();
-
-      const daysSinceStart = Math.floor((today - firstTaskDate) / (1000 * 60 * 60 * 24));
-      const currentMonthNumber = Math.floor(daysSinceStart / 30);
-
-      const monthStart = new Date(firstTaskDate);
-      monthStart.setDate(firstTaskDate.getDate() + (currentMonthNumber * 30));
-      monthStart.setHours(0, 0, 0, 0);
-
-      const monthEnd = new Date(monthStart);
-      monthEnd.setDate(monthStart.getDate() + 29);
-      monthEnd.setHours(23, 59, 59, 999);
+      const { start: monthStart, end: monthEnd } = getMonthRange(0);
+      const month = monthStart.getMonth() + 1;
+      const year = monthStart.getFullYear();
 
       const { data: todos, error: todosError } = await supabase
         .from('ToDo')
@@ -153,8 +106,9 @@ export default function PerformanceDashboard() {
 
       if (todosError) throw todosError;
 
-      const totalTasks = todos.length;
-      const completedTasks = todos.filter(t => t.completed && t.active).length;
+      const activeTasks = todos.filter(t => t.active);
+      const totalTasks = activeTasks.length;
+      const completedTasks = activeTasks.filter(t => t.completed).length;
 
       const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) : 0;
       const monthScore = Math.round(completionRate * 10);
@@ -162,8 +116,8 @@ export default function PerformanceDashboard() {
       const { data: existing } = await supabase
         .from('monthly_points')
         .select('*')
-        .eq('month', currentMonthNumber + 1)
-        .eq('year', firstTaskDate.getFullYear())
+        .eq('month', month)
+        .eq('year', year)
         .maybeSingle();
 
       let result;
@@ -173,8 +127,8 @@ export default function PerformanceDashboard() {
           .update({
             total_points: monthScore
           })
-          .eq('month', currentMonthNumber + 1)
-          .eq('year', firstTaskDate.getFullYear())
+          .eq('month', month)
+          .eq('year', year)
           .select()
           .single();
         result = data;
@@ -182,8 +136,8 @@ export default function PerformanceDashboard() {
         const { data } = await supabase
           .from('monthly_points')
           .insert({
-            month: currentMonthNumber + 1,
-            year: firstTaskDate.getFullYear(),
+            month,
+            year,
             total_points: monthScore
           })
           .select()
@@ -256,23 +210,19 @@ export default function PerformanceDashboard() {
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       const { data, error } = await supabase.from('daily_points').select('day, points').gte('day', ninetyDaysAgo.toISOString().split('T')[0]).order('day', { ascending: true });
       if (error) throw error;
-      const { data: firstTask } = await supabase.from('ToDo').select('created_at').order('created_at', { ascending: true }).limit(1).maybeSingle();
-      if (!firstTask) { setWeeklyScores([]); return; }
-      const firstTaskDate = new Date(firstTask.created_at);
-      firstTaskDate.setHours(0, 0, 0, 0);
+      // Canonical real Mon-Sun calendar weeks, same convention as the rest of Progress.
       const weekMap = new Map();
       (data || []).forEach(item => {
         const itemDate = new Date(item.day);
         itemDate.setHours(0, 0, 0, 0);
-        const daysSinceFirst = Math.floor((itemDate - firstTaskDate) / (1000 * 60 * 60 * 24));
-        const weekNumber = Math.floor(daysSinceFirst / 7);
-        const weekStart = new Date(firstTaskDate);
-        weekStart.setDate(firstTaskDate.getDate() + (weekNumber * 7));
+        const day = itemDate.getDay();
+        const weekStart = new Date(itemDate);
+        weekStart.setDate(itemDate.getDate() - ((day + 6) % 7));
         const weekKey = weekStart.toISOString().split('T')[0];
         if (!weekMap.has(weekKey)) {
           const weekEnd = new Date(weekStart);
           weekEnd.setDate(weekStart.getDate() + 6);
-          weekMap.set(weekKey, { weekStart: weekStart, weekEnd: weekEnd, totalScore: 0, days: 0 });
+          weekMap.set(weekKey, { weekStart, weekEnd, totalScore: 0, days: 0 });
         }
         const week = weekMap.get(weekKey);
         week.totalScore += item.points;
@@ -318,9 +268,10 @@ export default function PerformanceDashboard() {
     try {
       const { data: todos, error } = await supabase.from('ToDo').select('*').gte('created_at', today + 'T00:00:00').lte('created_at', today + 'T23:59:59');
       if (error) throw error;
-      const total = todos.length;
-      const completed = todos.filter(t => t.completed && t.active).length;
-      const failed = todos.filter(t => !t.completed && t.active).length;
+      const activeTodos = todos.filter(t => t.active);
+      const total = activeTodos.length;
+      const completed = activeTodos.filter(t => t.completed).length;
+      const failed = activeTodos.filter(t => !t.completed).length;
       const percentage = total > 0 ? (completed / total) * 100 : 0;
       let status = 'poor';
       if (percentage >= 90) status = 'excellent';
@@ -560,6 +511,11 @@ export default function PerformanceDashboard() {
             </div>
           }
         />
+      </div>
+
+      {/* Long-term achievement progress, alongside the daily/cycle ToDo stats above */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <AchievementProgressKpi />
       </div>
 
       {/* Cycle Performance */}

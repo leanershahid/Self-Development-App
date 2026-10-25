@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { Zap, Trophy, Star, Shield, Crown, Flame, Award, TrendingUp, Check } from 'lucide-react';
 import { Card, CardHeader, CardBody, Badge, KpiCard, SkeletonCard } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
+import { buildDayMap, computeStreaks } from '../utils/todoStats';
 
 const LEVELS = [
   { level: 1,  title: 'Novice',      xpRequired: 0,    color: '#94a3b8', icon: <Shield size={24} /> },
@@ -59,36 +55,21 @@ export default function LevelSystem() {
     const completed = active.filter(t => t.completed);
 
     // XP: 10 per completed todo, bonus for streaks
-    const dayMap = new Map();
-    active.forEach(t => {
-      const d = t.created_at.split('T')[0];
-      if (!dayMap.has(d)) dayMap.set(d, { total: 0, done: 0 });
-      const day = dayMap.get(d);
-      day.total++;
-      if (t.completed) day.done++;
-    });
+    const dayMap = buildDayMap(todos);
+    const sortedDays = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
 
-    let totalXP = 0, bestStreak = 0, currentStreak = 0, hasPerfectDay = false;
+    let totalXP = 0, hasPerfectDay = false;
     const xpLog = [];
-    const sortedDays = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    let prevDate = null;
 
     sortedDays.forEach(([date, day]) => {
       const pct = day.total > 0 ? day.done / day.total : 0;
       const dayXP = Math.round(day.done * 10 + pct * 50);
       totalXP += dayXP;
       xpLog.push({ date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), xp: dayXP, cumulative: totalXP });
-
       if (pct === 1) hasPerfectDay = true;
-      if (pct >= 0.5) {
-        const prev = prevDate ? new Date(prevDate) : null;
-        const cur = new Date(date);
-        if (prev && Math.round((cur - prev) / 86400000) === 1) currentStreak++;
-        else currentStreak = 1;
-        bestStreak = Math.max(bestStreak, currentStreak);
-      } else currentStreak = 0;
-      prevDate = date;
     });
+
+    const { bestStreak, currentStreak } = computeStreaks(dayMap, 50);
 
     const currentLevel = getLevel(totalXP);
     const nextLevel = getNextLevel(totalXP);

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { showLocalNotification } from "../utils/pushNotifications";
 import {
   Users,
@@ -23,12 +22,7 @@ import {
 
 import CloudinaryUpload from "./CloudinaryUpload";
 import { Button, Input, Card, CardBody, Badge, Modal, EmptyState, SkeletonCard, Avatar, useToast } from "./ui";
-
-const supabaseUrl = "https://qwjujuvtfqahapohhfzs.supabase.co";
-const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI";
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from "../supabase";
 
 // Tone tokens shared by priority levels, badges and the social guide
 const TONE = {

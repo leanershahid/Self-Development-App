@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Edit2, Plus, X, RefreshCw, Clock, Sparkles, TrendingUp, Flame, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 import TodaysQuotes from './TodaysQuotes';
 import CloudinaryUpload from './CloudinaryUpload';
 import { useTodoReminder } from '../utils/useTodoReminder';
@@ -9,10 +8,7 @@ import {
   Card, CardHeader, CardBody, Button, IconButton, Input, Select, Checkbox,
   Badge, Avatar, Modal, ConfirmDialog, EmptyState, SkeletonText, SkeletonCard, useToast,
 } from './ui';
-
-const supabaseUrl = 'https://qwjujuvtfqahapohhfzs.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabase';
 
 export default function TodoList() {
   const navigate = useNavigate();

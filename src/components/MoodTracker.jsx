@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ScatterChart, Scatter, ZAxis } from 'recharts';
 import { Smile, TrendingUp, Calendar, Zap } from 'lucide-react';
 import { Card, CardHeader, CardBody, Textarea, Button, KpiCard, EmptyState, SkeletonCard } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
 
 const MOODS = [
   { value: 1, emoji: '😞', label: 'Terrible', color: '#dc2626' },

@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Save, Search, Calendar, FileText, Sparkles, X } from 'lucide-react';
 import { Button, Card, CardHeader, CardBody, Badge, Input, Textarea, Tabs, KpiCard, EmptyState, Table, useToast } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
 
 const PROMPTS = [
   "What was your biggest win today?",

@@ -11,7 +11,7 @@ import {
     Modal, ConfirmDialog, EmptyState, Tabs, useToast, cn,
 } from "./ui";
 
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 const CATEGORIES = ["YouTube", "Podcast", "Reel", "Speech", "Story", "Ad", "Other"];
 const TONES = ["Motivational", "Casual", "Professional", "Humorous", "Dramatic", "Educational"];

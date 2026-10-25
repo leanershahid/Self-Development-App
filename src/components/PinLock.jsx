@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Lock, Delete } from "lucide-react";
 
-const CORRECT_PIN = "8281";
+// NOTE: this is a client-side convenience lock only, not real authentication —
+// any PIN baked into the Vite bundle is readable by anyone who opens devtools.
+const CORRECT_PIN = import.meta.env.VITE_APP_PIN;
 
 export default function PinLock({ onUnlock }) {
     const [pin, setPin] = useState("");

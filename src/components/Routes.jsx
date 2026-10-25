@@ -1,9 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layout/AppLayout";
 import TodoList from "./ToDoList";
-import PerformanceDashboard from "./PerformanceDashboard";
-import RewardsDashboard from "./RewardsDashboard";
+import ProgressHub from "./ProgressHub";
+import ReflectionsHub from "./ReflectionsHub";
+import CaptureInbox from "./CaptureInbox";
 import PlansPage from "./PlansPage";
 import QuoteTabs from "./QuoteTabs";
 import PreviousTodos from "./PreviousTodos";
@@ -11,21 +12,12 @@ import AchievementsPage from "./AchievementsPage";
 import FriendsPage from "./FriendsPage";
 import MoneyPage from "./MoneyPage";
 import MannersPage from "./MannersPage";
-import LifeSuccessRate from "./LifeSuccessRate";
 import MoodTracker from "./MoodTracker";
 import HabitStreaks from "./HabitStreaks";
-import WeeklyReportCard from "./WeeklyReportCard";
 import PomodoroTimer from "./PomodoroTimer";
-import DailyJournal from "./DailyJournal";
 import SkillsTracker from "./SkillsTracker";
 import BooksTracker from "./BooksTracker";
-import LevelSystem from "./LevelSystem";
-import BossChallenge from "./BossChallenge";
 import GalleryPage from "./GalleryPage";
-import MirrorTalk from "./MirrorTalk";
-import FearCrusher from "./FearCrusher";
-import ComfortZone from "./ComfortZone";
-import PatienceMarker from "./PatienceMarker";
 import AICoach from "./AICoach";
 import ScriptWriter from "./ScriptWriter";
 import SettingsPage from "./SettingsPage";
@@ -40,8 +32,15 @@ function RoutesConfig() {
             <AppLayout>
             <Routes>
                 <Route path="/" element={<TodoList />} />
-                <Route path="/performance-dashboard" element={<PerformanceDashboard />} />
-                <Route path="/reward-dashboard" element={<RewardsDashboard />} />
+                <Route path="/progress" element={<ProgressHub />} />
+                <Route path="/capture" element={<CaptureInbox />} />
+                {/* Old gamification routes redirect into the consolidated Progress page */}
+                <Route path="/performance-dashboard" element={<Navigate to="/progress" replace />} />
+                <Route path="/reward-dashboard" element={<Navigate to="/progress" replace />} />
+                <Route path="/life-success" element={<Navigate to="/progress" replace />} />
+                <Route path="/report-card" element={<Navigate to="/progress" replace />} />
+                <Route path="/level" element={<Navigate to="/progress" replace />} />
+                <Route path="/boss" element={<Navigate to="/progress" replace />} />
                 <Route path="/plans" element={<PlansPage />} />
                 <Route path="/inspirations" element={<QuoteTabs />} />
                 <Route path="/previous-todos" element={<PreviousTodos />} />
@@ -49,21 +48,19 @@ function RoutesConfig() {
                 <Route path="/freinds" element={<FriendsPage />} />
                 <Route path="/money" element={<MoneyPage />} />
                 <Route path="/manners" element={<MannersPage />} />
-                <Route path="/life-success" element={<LifeSuccessRate />} />
                 <Route path="/mood" element={<MoodTracker />} />
                 <Route path="/habits" element={<HabitStreaks />} />
-                <Route path="/report-card" element={<WeeklyReportCard />} />
                 <Route path="/pomodoro" element={<PomodoroTimer />} />
-                <Route path="/journal" element={<DailyJournal />} />
+                <Route path="/reflections" element={<ReflectionsHub />} />
+                {/* Old mindset-journal routes redirect into the consolidated Reflections page */}
+                <Route path="/journal" element={<Navigate to="/reflections" replace />} />
+                <Route path="/mirror-talk" element={<Navigate to="/reflections" replace />} />
+                <Route path="/fear-crusher" element={<Navigate to="/reflections" replace />} />
+                <Route path="/comfort-zone" element={<Navigate to="/reflections" replace />} />
+                <Route path="/patience-marker" element={<Navigate to="/reflections" replace />} />
                 <Route path="/skills" element={<SkillsTracker />} />
                 <Route path="/books" element={<BooksTracker />} />
-                <Route path="/level" element={<LevelSystem />} />
-                <Route path="/boss" element={<BossChallenge />} />
                 <Route path="/gallery" element={<GalleryPage />} />
-                <Route path="/mirror-talk" element={<MirrorTalk />} />
-                <Route path="/fear-crusher" element={<FearCrusher />} />
-                <Route path="/comfort-zone" element={<ComfortZone />} />
-                <Route path="/patience-marker" element={<PatienceMarker />} />
                 <Route path="/ai-coach" element={<AICoach />} />
                 <Route path="/script-writer" element={<ScriptWriter />} />
                 <Route path="/settings" element={<SettingsPage />} />

@@ -1,13 +1,12 @@
 import {
-  Home, Activity, Gift, Bot, Settings, Smile, Flame, ScrollText, Timer, Heart,
+  Home, Activity, Bot, Settings, Smile, Flame, Timer, Heart,
   Images, Utensils, Dumbbell, Brain, BookOpen, Map, Sparkles, FileText, Briefcase,
-  TrendingUp, ClipboardList, FolderOpen, Medal, Zap, Swords, Users, Wallet, Mic2, Shield, Trophy,
+  TrendingUp, FolderOpen, Medal, Users, Wallet, Mic2, Trophy, Inbox,
 } from 'lucide-react';
 
 export const NAV_DIRECT = [
   { label: 'Home', path: '/', icon: Home },
-  { label: 'Performance', path: '/performance-dashboard', icon: Activity },
-  { label: 'Rewards', path: '/reward-dashboard', icon: Gift },
+  { label: 'Progress', path: '/progress', icon: Activity },
   { label: 'AI Coach', path: '/ai-coach', icon: Bot },
 ];
 
@@ -18,7 +17,6 @@ export const NAV_GROUPS = [
     items: [
       { label: 'Mood Tracker', path: '/mood', icon: Smile },
       { label: 'Habit Streaks', path: '/habits', icon: Flame },
-      { label: 'Daily Journal', path: '/journal', icon: ScrollText },
       { label: 'Pomodoro', path: '/pomodoro', icon: Timer },
       { label: 'Manners', path: '/manners', icon: Heart },
       { label: 'Gallery', path: '/gallery', icon: Images },
@@ -42,8 +40,7 @@ export const NAV_GROUPS = [
     label: 'Analytics',
     icon: TrendingUp,
     items: [
-      { label: 'Life Success', path: '/life-success', icon: TrendingUp },
-      { label: 'Report Card', path: '/report-card', icon: ClipboardList },
+      { label: 'Capture Inbox', path: '/capture', icon: Inbox },
       { label: 'Previous Todos', path: '/previous-todos', icon: FolderOpen },
       { label: 'Achievements', path: '/achievements', icon: Medal },
     ],
@@ -52,18 +49,13 @@ export const NAV_GROUPS = [
     label: 'Mindset',
     icon: Mic2,
     items: [
-      { label: 'Mirror Talk', path: '/mirror-talk', icon: Mic2 },
-      { label: 'Fear Crusher', path: '/fear-crusher', icon: Swords },
-      { label: 'Comfort Zone', path: '/comfort-zone', icon: Shield },
-      { label: 'Patience Marker', path: '/patience-marker', icon: Heart },
+      { label: 'Reflections', path: '/reflections', icon: Mic2 },
     ],
   },
   {
     label: 'Social & Fun',
     icon: Trophy,
     items: [
-      { label: 'Level System', path: '/level', icon: Zap },
-      { label: 'Boss Fight', path: '/boss', icon: Swords },
       { label: 'Friends', path: '/freinds', icon: Users },
       { label: 'Money Vault', path: '/money', icon: Wallet },
     ],

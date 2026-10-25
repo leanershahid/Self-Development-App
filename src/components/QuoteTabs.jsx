@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Heart, Star, Sparkles, Coffee, Sun, Zap } from 'lucide-react';
+import { Heart, Star, Sparkles, Coffee, Sun, Zap, Check } from 'lucide-react';
 import QuoteManager from './QuoteManager';
-import { Card, CardHeader, CardBody, Badge, Tabs, Button } from './ui';
+import { Card, CardHeader, CardBody, Badge, Tabs, Button, useToast } from './ui';
+import { supabase } from '../supabase';
 
 export default function QuoteTabs() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [savedIds, setSavedIds] = useState(new Set());
 
   const tabs = [
     {
@@ -81,6 +85,44 @@ export default function QuoteTabs() {
 
   const activeContent = tabs[activeTab];
   const Icon = activeContent.icon;
+  const isSaved = savedIds.has(activeContent.id);
+
+  const handleSave = async () => {
+    if (isSaved || saving) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('quotes').insert([{
+        quote_text: activeContent.quote,
+        author: activeContent.author || null,
+        category: activeContent.label.toLowerCase(),
+        source: 'internet',
+      }]);
+      if (error) throw error;
+      setSavedIds((prev) => new Set(prev).add(activeContent.id));
+      toast.success('Saved to your Quote Registry!');
+    } catch (error) {
+      toast.error('Failed to save quote: ' + error.message);
+    }
+    setSaving(false);
+  };
+
+  const handleShare = async () => {
+    const shareText = `"${activeContent.quote}"${activeContent.author ? ` — ${activeContent.author}` : ''}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: shareText });
+      } catch {
+        // user cancelled the share sheet — not an error
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareText);
+      toast.success('Quote copied to clipboard!');
+    } catch {
+      toast.error('Could not copy quote to clipboard');
+    }
+  };
 
   const tabItems = tabs.map((tab) => {
     const TabIcon = tab.icon;
@@ -141,8 +183,16 @@ export default function QuoteTabs() {
               </p>
 
               <div className="flex gap-3 pt-4 border-t border-[var(--border)] mt-2">
-                <Button variant="primary" size="sm">Save Quote</Button>
-                <Button variant="secondary" size="sm">Share</Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={isSaved ? <Check size={14} /> : undefined}
+                  disabled={isSaved || saving}
+                  onClick={handleSave}
+                >
+                  {isSaved ? 'Saved' : saving ? 'Saving…' : 'Save Quote'}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleShare}>Share</Button>
               </div>
             </div>
           </div>

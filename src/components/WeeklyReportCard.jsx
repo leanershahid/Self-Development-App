@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { ClipboardList, TrendingUp, Award, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardBody, Badge, Button, KpiCard, Table, SkeletonCard } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
+import { getWeekRange } from '../utils/todoStats';
+import AchievementProgressKpi from './AchievementProgressKpi';
 
 // Maps letter grade -> design-system tone. These are purely presentational
 // (which color/badge-variant a grade renders as) and do not affect the
@@ -37,18 +34,6 @@ function getGrade(pct) {
   if (pct >= 45) return { grade: 'C', label: 'Average', tone: 'warning' };
   if (pct >= 35) return { grade: 'D', label: 'Below Avg', tone: 'danger' };
   return { grade: 'F', label: 'Failed', tone: 'danger' };
-}
-
-function getWeekRange(offset = 0) {
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((day + 6) % 7) + offset * 7);
-  monday.setHours(0, 0, 0, 0);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  return { start: monday, end: sunday };
 }
 
 export default function WeeklyReportCard() {
@@ -206,7 +191,7 @@ export default function WeeklyReportCard() {
           })()}
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
               { label: 'Completion', value: `${report.completionPct}%`, icon: <ClipboardList size={18} />, tone: 'primary' },
               { label: 'Consistency', value: `${report.consistency}%`, icon: <TrendingUp size={18} />, tone: 'accent' },
@@ -217,6 +202,9 @@ export default function WeeklyReportCard() {
                 <KpiCard label={s.label} value={s.value} icon={s.icon} tone={s.tone} />
               </motion.div>
             ))}
+            <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.35 }}>
+              <AchievementProgressKpi />
+            </motion.div>
           </div>
 
           {/* Radar Chart */}

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import {
     ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Cell, RadialBarChart, RadialBar,
@@ -7,11 +6,9 @@ import {
 } from 'recharts';
 import { TrendingDown, Flame, Target, Zap, Award, BarChart3, Activity, Grid3x3 } from 'lucide-react';
 import { Card, CardHeader, CardBody, KpiCard, Badge, Tabs, EmptyState, SkeletonCard } from './ui';
-
-const supabase = createClient(
-    'https://qwjujuvtfqahapohhfzs.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
+import { buildDayMap, computeOverallRate, computeStreaks } from '../utils/todoStats';
+import AchievementProgressKpi from './AchievementProgressKpi';
 
 function getRating(rate) {
     if (rate >= 90) return { label: 'Legendary', variant: 'success', color: '#10b981' };
@@ -36,6 +33,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function LifeSuccessRate() {
     const [allData, setAllData] = useState([]);
+    const [rawDayMap, setRawDayMap] = useState({});
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('composed'); // 'composed' | 'radial' | 'heatmap'
 
@@ -51,25 +49,20 @@ export default function LifeSuccessRate() {
 
             if (error) throw error;
 
-            // Group by date
-            const dayMap = new Map();
-            (data || []).forEach(todo => {
-                const day = todo.created_at.split('T')[0];
-                if (!dayMap.has(day)) dayMap.set(day, { total: 0, completed: 0, failed: 0 });
-                const d = dayMap.get(day);
-                d.total++;
-                if (todo.completed && todo.active) d.completed++;
-                else if (todo.active) d.failed++;
-            });
+            // Canonical day grouping: only active rows count, same as every other Progress tab.
+            const dayMap = buildDayMap(data);
+            setRawDayMap(dayMap);
 
-            const chartData = Array.from(dayMap.entries()).map(([day, d]) => ({
-                date: new Date(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                fullDate: day,
-                rate: d.total > 0 ? parseFloat(((d.completed / d.total) * 100).toFixed(1)) : 0,
-                completed: d.completed,
-                failed: d.failed,
-                total: d.total,
-            }));
+            const chartData = Object.entries(dayMap)
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([day, d]) => ({
+                    date: new Date(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    fullDate: day,
+                    rate: d.total > 0 ? parseFloat(((d.done / d.total) * 100).toFixed(1)) : 0,
+                    completed: d.done,
+                    failed: d.total - d.done,
+                    total: d.total,
+                }));
 
             setAllData(chartData);
         } catch (e) {
@@ -78,21 +71,11 @@ export default function LifeSuccessRate() {
         setLoading(false);
     };
 
-    const overallRate = allData.length
-        ? allData.reduce((s, d) => s + d.rate, 0) / allData.length
-        : 0;
-
-    const totalCompleted = allData.reduce((s, d) => s + d.completed, 0);
-    const totalFailed = allData.reduce((s, d) => s + d.failed, 0);
+    const { rate: overallRate, totalCompleted, totalTasks } = computeOverallRate(rawDayMap);
+    const totalFailed = totalTasks - totalCompleted;
     const bestDay = allData.reduce((best, d) => d.rate > (best?.rate ?? -1) ? d : best, null);
     const worstDay = allData.reduce((worst, d) => d.rate < (worst?.rate ?? 101) ? d : worst, null);
-    const streak = (() => {
-        let s = 0;
-        for (let i = allData.length - 1; i >= 0; i--) {
-            if (allData[i].rate >= 50) s++; else break;
-        }
-        return s;
-    })();
+    const { currentStreak: streak } = computeStreaks(rawDayMap, 50);
 
     const rating = getRating(overallRate);
 
@@ -144,11 +127,12 @@ export default function LifeSuccessRate() {
             </Card>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <KpiCard icon={<Target size={18} />} label="Total Tasks" value={totalCompleted + totalFailed} tone="primary" />
                 <KpiCard icon={<Zap size={18} />} label="Achieved" value={totalCompleted} tone="accent" />
                 <KpiCard icon={<TrendingDown size={18} />} label="Failed" value={totalFailed} tone="danger" />
                 <KpiCard icon={<Flame size={18} />} label="Win Streak" value={streak} unit="days" tone="warning" />
+                <AchievementProgressKpi />
             </div>
 
             {/* Best / Worst */}

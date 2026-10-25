@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { BookOpen, Plus, X, Check, Star, Pencil, StickyNote, Layers, Clock, Calendar } from 'lucide-react';
 import { Card, CardBody, Badge, Button, IconButton, Input, DateField, Select, Textarea, Modal, ConfirmDialog, EmptyState, SkeletonCard, useToast } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
 
 const LEVELS = [
   { min: 0,   max: 10,  label: 'Not Started', emoji: '🌑', color: '#475569' },

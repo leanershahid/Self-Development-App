@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis } from 'recharts';
 import { Brain, Plus, X, TrendingUp, Star, Trophy } from 'lucide-react';
 import { Card, CardHeader, CardBody, Badge, Button, IconButton, Input, KpiCard, EmptyState, SkeletonCard, ConfirmDialog, useToast } from './ui';
-
-const supabase = createClient(
-  'https://qwjujuvtfqahapohhfzs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI'
-);
+import { supabase } from '../supabase';
 
 const COLORS = ['#22d3ee', '#818cf8', '#4ade80', '#f59e0b', '#f87171', '#e879f9', '#fb923c', '#a78bfa'];
 const ACCENT_HEX = '#10b981';

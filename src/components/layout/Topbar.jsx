@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
-import { Menu, LogOut, Settings, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Menu, LogOut, Settings, ChevronDown, Sun, Moon, Search } from 'lucide-react';
 import { getPageTitle } from './routeMeta';
 import DesktopNav from './DesktopNav';
 import Dropdown, { DropdownItem } from '../ui/Dropdown';
@@ -9,7 +9,7 @@ import IconButton from '../ui/IconButton';
 import NotificationSetup from '../NotificationSetup';
 import { useTheme } from '../../ThemeStore';
 
-export default function Topbar({ onOpenMobileSidebar }) {
+export default function Topbar({ onOpenMobileSidebar, onOpenSearch }) {
   const location = useLocation();
   const navigate = useNavigate();
   const pageTitle = getPageTitle(location.pathname);
@@ -31,6 +31,17 @@ export default function Topbar({ onOpenMobileSidebar }) {
       <DesktopNav />
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
+        <button
+          onClick={onOpenSearch}
+          className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] transition-colors text-sm"
+        >
+          <Search size={15} />
+          <span>Search</span>
+          <kbd className="text-[10px] border border-[var(--border)] rounded px-1 py-0.5 ml-1">Ctrl K</kbd>
+        </button>
+        <IconButton label="Search" className="sm:hidden" onClick={onOpenSearch}>
+          <Search size={17} />
+        </IconButton>
         <IconButton label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleTheme}>
           {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
         </IconButton>

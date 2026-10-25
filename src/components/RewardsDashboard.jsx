@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Gift, Award, Star, Sparkles, Medal, Crown, Zap, Trash2, X, Check, FileImage, Lock } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 import {
   Card, CardBody, Badge, Button, IconButton, Input, Textarea, Select,
   Modal, ConfirmDialog, EmptyState, SkeletonCard, useToast,
 } from './ui';
 import { syncAchievementRewards } from '../utils/syncAchievementRewards';
-
-const supabaseUrl = 'https://qwjujuvtfqahapohhfzs.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabase';
 
 export default function RewardsDashboard() {
   const toast = useToast();

@@ -30,18 +30,12 @@ SELECT cron.schedule(
   $$
 );
 
--- Friends overdue reminder every day at 10 AM
-SELECT cron.schedule(
-  'send-push-daily',
-  '0 10 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://qwjujuvtfqahapohhfzs.supabase.co/functions/v1/send-push',
-    headers := jsonb_build_object('Content-Type', 'application/json'),
-    body := '{}'::jsonb
-  );
-  $$
-);
+-- NOTE: a 'send-push-daily' cron job previously pointed at functions/v1/send-push,
+-- which was never created in supabase/functions/ (only send-reminder, todo-reminder,
+-- and job-apply-notify exist) — it fired daily at 10 AM and silently failed every time.
+-- Removed until an actual "friends overdue" edge function is built. If this schedule
+-- was created in the live DB via the Supabase SQL editor, also run:
+--   SELECT cron.unschedule('send-push-daily');
 
 -- Morning notification at 8 AM
 SELECT cron.schedule(
