@@ -1,3 +1,5 @@
+// Values come from Vercel project environment variables in production,
+// and from .env.local in local development.
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
