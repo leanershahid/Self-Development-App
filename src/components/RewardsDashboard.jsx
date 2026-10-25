@@ -5,6 +5,7 @@ import {
   Card, CardBody, Badge, Button, IconButton, Input, Textarea, Select,
   Modal, ConfirmDialog, EmptyState, SkeletonCard, useToast,
 } from './ui';
+import { syncAchievementRewards } from '../utils/syncAchievementRewards';
 
 const supabaseUrl = 'https://qwjujuvtfqahapohhfzs.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3anVqdXZ0ZnFhaGFwb2hoZnpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTEyMzYsImV4cCI6MjEwMzY2NzIzNn0.CEnppxWU5d4jKGtjlB6u3U2V_3hjgqUxzoU1KRx7fZI';
@@ -19,6 +20,7 @@ export default function RewardsDashboard() {
   const [imagePreview, setImagePreview] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [newReward, setNewReward] = useState({
     reward_type: 'weekly',
     week_count: '',
@@ -512,8 +514,17 @@ export default function RewardsDashboard() {
           </div>
 
           <div className="flex flex-col gap-4">
+            <div>
+              <label className="text-xs font-medium text-[var(--text-muted)] mb-1.5 block">Upload Image (Optional)</label>
+              <label className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-[var(--radius-field)] border border-dashed border-[var(--field-border)] text-sm text-[var(--text-muted)] hover:border-primary/50 hover:text-primary bg-[var(--surface-hover)] transition-all cursor-pointer ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                <FileImage size={16} />
+                {uploading ? 'Uploading...' : 'Choose image from device'}
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+              </label>
+            </div>
+
             <Input
-              label="Image URL (Optional)"
+              label="Or Image URL (Optional)"
               type="text"
               value={newReward.image_url}
               onChange={handleImageChange}
