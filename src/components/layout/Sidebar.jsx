@@ -1,15 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Search, Settings, ChevronDown } from 'lucide-react';
+import { Search, Settings, ChevronDown, Sun, Moon } from 'lucide-react';
 import { NAV_DIRECT, NAV_GROUPS, SETTINGS_ITEM } from './routeMeta';
 import Avatar from '../ui/Avatar';
 import { cn } from '../ui/cn';
+import NotificationSetup from '../NotificationSetup';
+import { useTheme } from '../../ThemeStore';
 
 function matchesQuery(item, query) {
   return item.label.toLowerCase().includes(query);
 }
 
 export default function Sidebar({ mobileOpen, onCloseMobile }) {
+  const { theme, toggleTheme } = useTheme();
   const [query, setQuery] = useState('');
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(NAV_GROUPS.map((g) => [g.label, true])));
 
@@ -90,6 +93,20 @@ export default function Sidebar({ mobileOpen, onCloseMobile }) {
         </nav>
 
         <div className="border-t border-white/10 p-3 flex flex-col gap-1 shrink-0">
+          {/* Theme + notifications live here on small phones only — the Topbar
+              shows them directly from the `sm` breakpoint up, where there's
+              room; on narrow phones they'd otherwise crowd the page title. */}
+          <div className="sm:hidden flex items-center gap-2 px-1 pb-2 mb-1 border-b border-white/10">
+            <button
+              onClick={toggleTheme}
+              className="flex-1 flex items-center justify-center gap-2 h-9 rounded-lg text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+            <NotificationSetup />
+          </div>
+
           <NavLink to={SETTINGS_ITEM.path} className={linkClass} onClick={onCloseMobile}>
             <Settings size={17} className="shrink-0" />
             <span className="truncate">{SETTINGS_ITEM.label}</span>

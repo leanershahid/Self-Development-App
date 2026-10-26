@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Edit2, Plus, X, RefreshCw, Clock, Sparkles, TrendingUp, Flame, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TodaysQuotes from './TodaysQuotes';
+import HomeTrendCard from './HomeTrendCard';
 import CloudinaryUpload from './CloudinaryUpload';
 import { useTodoReminder } from '../utils/useTodoReminder';
 import {
@@ -271,11 +272,11 @@ export default function TodoList() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
 
-      {/* Profile */}
+      {/* Hero: profile + live clock, side-by-side on wider screens, stacked on mobile */}
       <Card>
-        <CardBody className="flex flex-col items-center text-center gap-3">
-          <div className="relative">
-            <Avatar src={profileImage || undefined} name="Profile" size="lg" className="w-24 h-24 text-2xl ring-4 ring-[var(--surface-hover)]" />
+        <CardBody className="flex flex-col sm:flex-row items-center gap-5 py-6">
+          <div className="relative shrink-0">
+            <Avatar src={profileImage || undefined} name="Profile" size="lg" className="w-20 h-20 text-xl ring-4 ring-[var(--surface-hover)]" />
 
             <CloudinaryUpload
               variant="avatar"
@@ -301,28 +302,30 @@ export default function TodoList() {
               </IconButton>
             )}
           </div>
-          <p className="text-xs text-[var(--text-muted)]">Tap the camera icon to change your photo</p>
+
+          <div className="hidden sm:block w-px self-stretch bg-[var(--border)]" />
+
+          <div className="flex flex-col items-center sm:items-start gap-1 flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+              <Clock size={14} className="text-primary" /> {dayStr} · {dateStr}
+            </div>
+            <div className="flex items-end gap-2">
+              <span className="text-4xl sm:text-5xl font-light text-[var(--text)] tracking-tight">{timeStr}</span>
+              <div className="flex flex-col items-start pb-1">
+                <span className="text-sm font-bold text-primary">{ampm}</span>
+                <span className="text-xs font-mono text-[var(--text-muted)]">{secondsStr}</span>
+              </div>
+            </div>
+            {streak > 0 && (
+              <Badge variant="warning" className="mt-1">
+                <Flame size={12} /> {streak} day streak
+              </Badge>
+            )}
+          </div>
         </CardBody>
       </Card>
 
-      {/* Clock */}
-      <Card>
-        <CardBody className="flex flex-col items-center gap-1 py-6">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-            <Clock size={14} className="text-primary" /> {dayStr}
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-5xl font-light text-[var(--text)] tracking-tight">{timeStr}</span>
-            <div className="flex flex-col items-start pb-1.5">
-              <span className="text-sm font-bold text-primary">{ampm}</span>
-              <span className="text-xs font-mono text-[var(--text-muted)]">{secondsStr}</span>
-            </div>
-          </div>
-          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-widest mt-1">
-            {dateStr}
-          </div>
-        </CardBody>
-      </Card>
+      <HomeTrendCard />
 
       <TodaysQuotes />
 
@@ -427,20 +430,13 @@ export default function TodoList() {
           subtitle={streak > 0 ? `${streak} day streak` : 'Stay consistent today'}
           icon={<Sparkles size={18} />}
           action={
-            <div className="flex items-center gap-2">
-              {streak > 0 && (
-                <Badge variant="warning">
-                  <Flame size={12} /> {streak}d
-                </Badge>
-              )}
-              <IconButton
-                label="Regenerate default tasks"
-                onClick={handleRegenerate}
-                disabled={!canRegenerate}
-              >
-                <RefreshCw size={16} />
-              </IconButton>
-            </div>
+            <IconButton
+              label="Regenerate default tasks"
+              onClick={handleRegenerate}
+              disabled={!canRegenerate}
+            >
+              <RefreshCw size={16} />
+            </IconButton>
           }
         />
         <CardBody className="flex flex-col gap-5">

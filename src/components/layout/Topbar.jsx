@@ -26,11 +26,11 @@ export default function Topbar({ onOpenMobileSidebar, onOpenSearch }) {
         <span className="hidden sm:block text-sm font-semibold text-[var(--text)] whitespace-nowrap">Self Development</span>
       </NavLink>
 
-      <h1 className="lg:hidden text-sm font-semibold text-[var(--text)] truncate">{pageTitle}</h1>
+      <h1 className="lg:hidden flex-1 min-w-0 text-sm font-semibold text-[var(--text)] truncate">{pageTitle}</h1>
 
       <DesktopNav />
 
-      <div className="ml-auto flex items-center gap-2 shrink-0">
+      <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
         <button
           onClick={onOpenSearch}
           className="hidden sm:flex items-center gap-2 px-3 h-9 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] transition-colors text-sm"
@@ -42,10 +42,12 @@ export default function Topbar({ onOpenMobileSidebar, onOpenSearch }) {
         <IconButton label="Search" className="sm:hidden" onClick={onOpenSearch}>
           <Search size={17} />
         </IconButton>
-        <IconButton label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleTheme}>
-          {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-        </IconButton>
-        <NotificationSetup />
+        <div className="hidden sm:flex items-center gap-2">
+          <IconButton label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </IconButton>
+          <NotificationSetup />
+        </div>
 
         <Dropdown
           trigger={
