@@ -3,6 +3,7 @@ import { Trash2, Edit2, Plus, X, RefreshCw, Clock, Sparkles, TrendingUp, Flame, 
 import { useNavigate } from 'react-router-dom';
 import TodaysQuotes from './TodaysQuotes';
 import HomeTrendCard from './HomeTrendCard';
+import AchievementProgressChart from './AchievementProgressChart';
 import CloudinaryUpload from './CloudinaryUpload';
 import { useTodoReminder } from '../utils/useTodoReminder';
 import {
@@ -326,6 +327,8 @@ export default function TodoList() {
       </Card>
 
       <HomeTrendCard />
+
+      <AchievementProgressChart />
 
       <TodaysQuotes />
 
