@@ -22,36 +22,41 @@ const MEAL_HOURS = {
   'Dinner':        [19, 22],
 };
 
+// macros: kcal / protein (g) / carbs (g) / fat (g) - approximate, Indian home-cooked portions
+// Plan ~ 2,720 kcal | 145g P | 348g C | 88g F on a workout day (lean bulk for ~65 kg)
 const MEALS_ALL = [
   {
     time: 'Pre-Workout',
-    subtitle: 'Quick energy boost · ~1g protein',
+    subtitle: 'Quick energy',
     icon: Sun,
     color: '#facc15',
-    items: ['1 banana', 'Black coffee/tea'],
-    tip: 'Simple fuel for your workout session',
+    macros: { kcal: 175, p: 7, c: 28, f: 5 },
+    items: ['1 banana (105 kcal)', '1 boiled egg (70 kcal · 6g P)', 'Black coffee/tea, no sugar'],
+    tip: 'Fast carbs 30–45 min before training for a strong pump',
     workoutOnly: true,
     image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80',
   },
   {
     time: 'Post-Workout',
-    subtitle: 'Recovery meal · ~26g protein',
+    subtitle: 'Recovery / morning protein',
     icon: Dumbbell,
     color: '#4ade80',
-    items: ['3 whole eggs', '2 bread slices', '1 tbsp peanut butter'],
-    tip: 'Strong start: protein + calories',
-    workoutOnly: true,
+    macros: { kcal: 440, p: 30, c: 31, f: 22 },
+    items: ['4 whole eggs (280 kcal · 24g P)', '2 bread slices (160 kcal · 6g P)'],
+    tip: 'Eat within 1 hour of training. On rest days it is your protein-rich breakfast.',
+    workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=80',
   },
   {
     time: 'Breakfast',
-    subtitle: 'Choose one · ~8–10g protein',
+    subtitle: 'Main breakfast',
     icon: Coffee,
     color: '#fb923c',
+    macros: { kcal: 470, p: 20, c: 72, f: 12 },
     items: [
-      '2 dosa + sambar',
-      'OR 3 idli + sambar',
-      'OR Oats',
+      '3 idli + 1 cup sambar (320 kcal)',
+      '1 glass milk, 250 ml (150 kcal · 8g P)',
+      'Swap: 2 dosa + sambar, OR 60g oats cooked in milk + banana (same macros)',
     ],
     tip: 'Pick one option each morning',
     workoutOnly: false,
@@ -59,51 +64,85 @@ const MEALS_ALL = [
   },
   {
     time: 'Lunch',
-    subtitle: 'Biggest meal · ~30g protein',
+    subtitle: 'Biggest protein meal',
     icon: Utensils,
     color: '#22d3ee',
+    macros: { kcal: 800, p: 49, c: 117, f: 14 },
     items: [
-      'Rice',
-      '50g dry soya chunks curry',
-      'Dal/vegetables',
+      '1 cup cooked rice, ~200g (260 kcal)',
+      '50g dry soya chunks curry, 1 tsp oil (210 kcal · 26g P)',
+      '1 cup dal (180 kcal · 10g P)',
+      '1 cup vegetables (60 kcal)',
+      '1 cup curd, 150g (90 kcal · 5g P)',
     ],
-    tip: 'Soya chunks are your main protein source here',
+    tip: 'Soya chunks = cheapest protein (~52g P per 100g dry). Soak 15 min, squeeze, then cook.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
   },
   {
     time: 'Evening Snack',
-    subtitle: 'Light snack · ~8–10g protein',
+    subtitle: 'Healthy fats + carbs',
     icon: Apple,
     color: '#f97316',
+    macros: { kcal: 275, p: 9, c: 32, f: 14 },
     items: [
-      'Roasted peanuts OR kadala',
-      'Banana',
+      '30g roasted peanuts OR boiled kadala (170 kcal · 8g P)',
+      '1 banana (105 kcal)',
     ],
-    tip: 'Keeps energy up before dinner',
+    tip: 'Peanuts are the cheapest healthy fat. Keep them roasted, not fried.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1536591375667-f9a9a8a3e0e5?w=600&q=80',
   },
   {
     time: 'Dinner',
-    subtitle: 'Evening fuel · ~18–22g protein',
+    subtitle: 'Protein + slow carbs',
     icon: Moon,
     color: '#818cf8',
+    macros: { kcal: 560, p: 30, c: 68, f: 21 },
     items: [
-      '2–3 chapati OR medium rice',
-      '2 eggs OR fish/chicken',
+      '3 chapati, no oil (270 kcal)',
+      '3 eggs as curry/bhurji, OR 120g chicken/fish (210 kcal · 18g P)',
+      '1 cup vegetable curry/salad (80 kcal)',
     ],
-    tip: 'Finish strong with quality protein',
+    tip: 'Eat 2–3 hours before sleep. Go light on oil for a leaner midsection.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&q=80',
   },
 ];
 
+const sumMacros = (list) =>
+  list.reduce(
+    (t, m) => ({ kcal: t.kcal + m.macros.kcal, p: t.p + m.macros.p, c: t.c + m.macros.c, f: t.f + m.macros.f }),
+    { kcal: 0, p: 0, c: 0, f: 0 }
+  );
+
+// Lean-bulk targets from body weight: ~41 kcal/kg, 2g protein, 1.2g fat, rest carbs
+function getTargets(bw) {
+  const kcal = Math.round((bw * 41) / 10) * 10;
+  const p = Math.round(bw * 2);
+  const f = Math.round(bw * 1.2);
+  const c = Math.round((kcal - p * 4 - f * 9) / 4);
+  return { kcal, p, c, f };
+}
+
+const WORKOUT_SPLIT = [
+  { day: 'Mon', focus: 'Push', detail: 'Bench press, incline DB press, shoulder press, lateral raise, triceps dips' },
+  { day: 'Tue', focus: 'Pull', detail: 'Pull-ups/lat pulldown, barbell row, face pull, biceps curl, hammer curl' },
+  { day: 'Wed', focus: 'Legs + Abs', detail: 'Squat, Romanian deadlift, lunges, calf raise, plank, hanging leg raise' },
+  { day: 'Thu', focus: 'Rest', detail: 'Walk 8–10k steps, stretching, eye care' },
+  { day: 'Fri', focus: 'Push', detail: 'Overhead press, incline bench, cable fly, skull crushers, ab wheel' },
+  { day: 'Sat', focus: 'Pull + Legs', detail: 'Deadlift, seated row, leg press, curls, cable crunch' },
+  { day: 'Sun', focus: 'Rest', detail: 'Full rest or 30 min light cardio' },
+];
+
 const RULES = [
-  { icon: TrendingUp, label: 'Protein Target', value: '1.6–2g per kg body weight' },
+  { icon: TrendingUp, label: 'Protein Target', value: '2g per kg body weight, over 5–6 meals' },
+  { icon: TrendingUp, label: 'Calories',       value: 'Lean-bulk surplus of only +250–300 kcal' },
   { icon: Droplets,   label: 'Water Daily',    value: '3 litres minimum' },
   { icon: BedDouble,  label: 'Sleep',          value: '7–8 hours every night' },
-  { icon: TrendingUp, label: 'Weight Gain',    value: '0.25–0.5 kg per week' },
+  { icon: TrendingUp, label: 'Weight Gain',    value: '0.25–0.5 kg per week (faster = belly fat)' },
+  { icon: Dumbbell,   label: 'Training',       value: '5 days/week, progressive overload, abs 3x/week' },
+  { icon: TrendingUp, label: 'Steps',          value: '8–10k steps daily keeps abs visible' },
 ];
 
 const TIMELINE_TIMES = [
@@ -123,10 +162,29 @@ function getCurrentMeal() {
   return null;
 }
 
+function MacroChips({ macros }) {
+  const chips = [
+    ['Calories', `${macros.kcal}`, 'text-warning'],
+    ['Protein g', `${macros.p}`, 'text-accent'],
+    ['Carbs g', `${macros.c}`, 'text-primary'],
+    ['Fat g', `${macros.f}`, 'text-[var(--text-muted)]'],
+  ];
+  return (
+    <div className="grid grid-cols-4 gap-2 mb-4">
+      {chips.map(([label, val, cls]) => (
+        <div key={label} className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
+          <p className={cn('text-sm font-bold', cls)}>{val}</p>
+          <p className="text-[10px] uppercase text-[var(--text-muted)]">{label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Meal Card ──────────────────────────────────────────────────────────────
 function MealCard({ meal, checked, onCheck, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { time, subtitle, items, tip, image } = meal;
+  const { time, subtitle, items, tip, image, macros } = meal;
 
   return (
     <Card className={checked ? 'border-accent/40' : ''}>
@@ -147,7 +205,9 @@ function MealCard({ meal, checked, onCheck, defaultOpen }) {
 
         <div className="flex-1 min-w-0">
           <p className={cn('font-semibold text-sm', checked ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text)]')}>{time}</p>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">{subtitle}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+            {subtitle} · {macros.kcal} kcal · {macros.p}g P
+          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -161,6 +221,7 @@ function MealCard({ meal, checked, onCheck, defaultOpen }) {
           <div className="rounded-lg overflow-hidden mb-4 bg-[var(--bg)]">
             <img src={image} alt={time} className="w-full object-contain max-h-64" loading="lazy" />
           </div>
+          <MacroChips macros={macros} />
           <div className="space-y-2 mb-4">
             {items.map((item) => (
               <div key={item} className="flex items-start gap-2 text-sm text-[var(--text)]">
@@ -209,6 +270,7 @@ function TimelineView({ meals, checked, onCheck }) {
                 </button>
               </div>
 
+              <MacroChips macros={meal.macros} />
               <div className="space-y-1.5">
                 {meal.items.map((item) => (
                   <div key={item} className="flex items-start gap-2 text-sm text-[var(--text)]">
@@ -340,7 +402,7 @@ function WeightTracker({ bodyWeight }) {
 
         {bodyWeight > 0 && (
           <p className="text-xs text-accent text-center">
-            Your protein target: {Math.round(bodyWeight * 1.6)}–{Math.round(bodyWeight * 2)}g / day
+            Your protein target: {Math.round(bodyWeight * 1.8)}–{Math.round(bodyWeight * 2.2)}g / day
           </p>
         )}
       </CardBody>
@@ -561,7 +623,11 @@ export default function WorkoutDiet() {
 
   const meals = isWorkoutDay ? MEALS_ALL : MEALS_ALL.filter(m => !m.workoutOnly);
 
-  const completedCount = Object.values(checked).filter(Boolean).length;
+  const planTotals = sumMacros(meals);
+  const eaten = sumMacros(meals.filter(m => checked[m.time]));
+  const targets = bodyWeight > 0 ? getTargets(bodyWeight) : null;
+
+  const completedCount = meals.filter(m => checked[m.time]).length;
   const totalCount = meals.length;
 
   const handleCheck = (mealTime) => {
@@ -582,7 +648,7 @@ export default function WorkoutDiet() {
         <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2">
           <Dumbbell className="text-primary" size={24} /> Athletic Diet Plan
         </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">Affordable · ₹80–120/day · Real gains</p>
+        <p className="text-sm text-[var(--text-muted)] mt-1">Lean bulk + six-pack · ~₹130–150/day · Eggs, soya, milk, peanuts</p>
       </div>
 
       <Tabs
@@ -613,7 +679,7 @@ export default function WorkoutDiet() {
               />
               {bodyWeight > 0 && (
                 <div className="h-10 px-4 flex items-center rounded-lg bg-accent/10 text-accent text-sm font-semibold whitespace-nowrap">
-                  {Math.round(bodyWeight * 1.6)}–{Math.round(bodyWeight * 2)}g protein
+                  {Math.round(bodyWeight * 1.8)}–{Math.round(bodyWeight * 2.2)}g protein
                 </div>
               )}
             </CardBody>
@@ -649,6 +715,25 @@ export default function WorkoutDiet() {
             </CardBody>
           </Card>
 
+          {/* Daily macros */}
+          <Card>
+            <CardHeader icon={<TrendingUp size={18} />} title={`Daily Macros · ${isWorkoutDay ? 'Workout' : 'Rest'} Day`} />
+            <CardBody className="flex flex-col gap-3">
+              <MacroChips macros={planTotals} />
+              <p className="text-xs text-[var(--text-muted)]">
+                Eaten so far: {eaten.kcal} kcal · {eaten.p}g protein · {eaten.c}g carbs · {eaten.f}g fat
+              </p>
+              {targets ? (
+                <p className="text-xs text-accent">
+                  Your target ({bodyWeight} kg): {targets.kcal} kcal · {targets.p}g protein · {targets.c}g carbs · {targets.f}g fat
+                </p>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">Enter your body weight above for personal targets. Plan is built for ~65 kg.</p>
+              )}
+              <p className="text-xs text-[var(--text-muted)]">Split: ~21% protein · ~51% carbs · ~29% fat</p>
+            </CardBody>
+          </Card>
+
           {/* Progress */}
           <KpiCard
             icon={<Check size={18} />}
@@ -671,6 +756,23 @@ export default function WorkoutDiet() {
           ) : (
             <TimelineView meals={meals} checked={checked} onCheck={handleCheck} />
           )}
+
+          {/* Weekly workout split */}
+          <Card>
+            <CardHeader icon={<Dumbbell size={18} />} title="Weekly Workout Split" />
+            <CardBody className="flex flex-col gap-2">
+              {WORKOUT_SPLIT.map((d) => (
+                <div key={d.day} className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <span className="text-xs font-bold text-primary w-8 shrink-0 mt-0.5">{d.day}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text)]">{d.focus}</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{d.detail}</p>
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-[var(--text-muted)] mt-2">3–4 sets × 8–12 reps. Add weight or a rep every week.</p>
+            </CardBody>
+          </Card>
 
           {/* Weight Tracker */}
           <WeightTracker bodyWeight={bodyWeight} />
