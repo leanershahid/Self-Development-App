@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Dumbbell, Sun, Coffee, Utensils, Apple, Moon, Droplets, BedDouble,
-  TrendingUp, ChevronDown, ChevronUp, Check, LayoutList, Clock, Scale, Plus, Eye, Timer,
+  Dumbbell, Sun, Coffee, Utensils, Moon, Droplets, BedDouble,
+  TrendingUp, ChevronDown, ChevronUp, Check, LayoutList, Clock, Scale, Plus, Eye, Timer, Info,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../supabase';
@@ -18,32 +18,38 @@ const MEAL_HOURS = {
   'Post-Workout':  [8, 10],
   'Breakfast':     [9, 12],
   'Lunch':         [12, 16],
-  'Evening Snack': [16, 19],
   'Dinner':        [19, 22],
 };
 
-// macros: kcal / protein (g) / carbs (g) / fat (g) - approximate, Indian home-cooked portions
-// Plan ~ 2,720 kcal | 145g P | 348g C | 88g F on a workout day (lean bulk for ~65 kg)
+// macros: kcal / protein (g) / carbs (g) / fat (g) - approximate, Kerala-style home portions
+// Plan ~ 2,270 kcal | 152g P | 249g C | 71g F per day (muscle gain + fat loss, ~65 kg)
 const MEALS_ALL = [
   {
     time: 'Pre-Workout',
-    subtitle: 'Quick energy',
+    subtitle: 'Supplements + quick energy',
     icon: Sun,
     color: '#facc15',
-    macros: { kcal: 175, p: 7, c: 28, f: 5 },
-    items: ['1 banana (105 kcal)', '1 boiled egg (70 kcal · 6g P)', 'Black coffee/tea, no sugar'],
-    tip: 'Fast carbs 30–45 min before training for a strong pump',
+    macros: { kcal: 105, p: 1, c: 27, f: 0 },
+    items: [
+      'Creatine monohydrate – 3 g',
+      '1 medium banana',
+      '1 cup black coffee, without sugar',
+    ],
+    tip: 'Take creatine consistently every day — timing is flexible, 3–5 g is the common daily dose.',
     workoutOnly: true,
     image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80',
   },
   {
     time: 'Post-Workout',
-    subtitle: 'Recovery / morning protein',
+    subtitle: 'Recovery protein',
     icon: Dumbbell,
     color: '#4ade80',
-    macros: { kcal: 440, p: 30, c: 31, f: 22 },
-    items: ['4 whole eggs (280 kcal · 24g P)', '2 bread slices (160 kcal · 6g P)'],
-    tip: 'Eat within 1 hour of training. On rest days it is your protein-rich breakfast.',
+    macros: { kcal: 387, p: 26, c: 7, f: 29 },
+    items: [
+      '3 whole eggs',
+      'MyFitness crunchy protein peanut butter – 2 level tablespoons (~30 g, ~7.8g protein)',
+    ],
+    tip: 'Measure the peanut butter — tablespoons vary, weigh it once to know your real serving.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=80',
   },
@@ -52,13 +58,13 @@ const MEALS_ALL = [
     subtitle: 'Main breakfast',
     icon: Coffee,
     color: '#fb923c',
-    macros: { kcal: 470, p: 20, c: 72, f: 12 },
+    macros: { kcal: 420, p: 11, c: 65, f: 10 },
     items: [
-      '3 idli + 1 cup sambar (320 kcal)',
-      '1 glass milk, 250 ml (150 kcal · 8g P)',
-      'Swap: 2 dosa + sambar, OR 60g oats cooked in milk + banana (same macros)',
+      'Choose one: 3 medium dosa OR 4 medium pathiri',
+      'After breakfast: 1 tbsp chia seeds soaked in a glass of water',
+      '1 multivitamin tablet with breakfast, only as directed on its label',
     ],
-    tip: 'Pick one option each morning',
+    tip: 'Pick one carb option each morning; don\'t stack the multivitamin with other high-dose supplements.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&q=80',
   },
@@ -67,47 +73,43 @@ const MEALS_ALL = [
     subtitle: 'Biggest protein meal',
     icon: Utensils,
     color: '#22d3ee',
-    macros: { kcal: 800, p: 49, c: 117, f: 14 },
+    macros: { kcal: 590, p: 51, c: 74, f: 8 },
     items: [
-      '1 cup cooked rice, ~200g (260 kcal)',
-      '50g dry soya chunks curry, 1 tsp oil (210 kcal · 26g P)',
-      '1 cup dal (180 kcal · 10g P)',
-      '1 cup vegetables (60 kcal)',
-      '1 cup curd, 150g (90 kcal · 5g P)',
+      'Cooked rice – 200 g',
+      'Soybean/soya chunks – 25 g (weigh dry before boiling)',
+      'Chicken breast – 100 g',
+      'Vegetable curry or vegetables – add a serving',
     ],
-    tip: 'Soya chunks = cheapest protein (~52g P per 100g dry). Soak 15 min, squeeze, then cook.',
+    tip: 'Weigh chicken and soya consistently (raw/dry vs cooked) — this plan assumes raw/dry weights.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
-  },
-  {
-    time: 'Evening Snack',
-    subtitle: 'Healthy fats + carbs',
-    icon: Apple,
-    color: '#f97316',
-    macros: { kcal: 275, p: 9, c: 32, f: 14 },
-    items: [
-      '30g roasted peanuts OR boiled kadala (170 kcal · 8g P)',
-      '1 banana (105 kcal)',
-    ],
-    tip: 'Peanuts are the cheapest healthy fat. Keep them roasted, not fried.',
-    workoutOnly: false,
-    image: 'https://images.unsplash.com/photo-1536591375667-f9a9a8a3e0e5?w=600&q=80',
   },
   {
     time: 'Dinner',
     subtitle: 'Protein + slow carbs',
     icon: Moon,
     color: '#818cf8',
-    macros: { kcal: 560, p: 30, c: 68, f: 21 },
+    macros: { kcal: 765, p: 63, c: 76, f: 24 },
     items: [
-      '3 chapati, no oil (270 kcal)',
-      '3 eggs as curry/bhurji, OR 120g chicken/fish (210 kcal · 18g P)',
-      '1 cup vegetable curry/salad (80 kcal)',
+      'Chapati – 3 medium',
+      'Chicken breast – 100 g',
+      'Soybean/soya chunks – 25 g (weigh dry before boiling)',
+      'MyFitness crunchy protein peanut butter – 2 level tablespoons (~30 g)',
+      'Vegetables – add a serving',
+      'Fish oil – 1,000 mg capsule with dinner, per the product label',
     ],
-    tip: 'Eat 2–3 hours before sleep. Go light on oil for a leaner midsection.',
+    tip: 'A 1,000 mg fish-oil capsule isn\'t 1,000 mg EPA+DHA — check the label. Ask a clinician first if on blood thinners.',
     workoutOnly: false,
     image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&q=80',
   },
+];
+
+const PORTION_NOTES = [
+  'Weigh foods consistently: rice is cooked weight; chicken and soya need a clear raw/dry or cooked measure. This plan assumes 100g raw chicken and 25g dry soya chunks per meal.',
+  'Peanut butter: weigh it once — the estimate assumes 30g for two level tablespoons at 26g protein/100g.',
+  'Exact daily protein depends on whether chicken is raw or cooked, whether soya is whole beans or chunks, and your dosa/pathiri/chapati sizes.',
+  '2,100–2,200 kcal is a starting estimate, not a guaranteed deficit. Track morning body weight several times a week and waist once a week for 2–3 weeks, then adjust portions modestly. Avoid crash dieting.',
+  'Supplements don\'t replace a varied diet — check fish oil and multivitamin labels, and don\'t stack overlapping doses.',
 ];
 
 const sumMacros = (list) =>
@@ -116,11 +118,11 @@ const sumMacros = (list) =>
     { kcal: 0, p: 0, c: 0, f: 0 }
   );
 
-// Lean-bulk targets from body weight: ~41 kcal/kg, 2g protein, 1.2g fat, rest carbs
+// Muscle gain + fat loss targets from body weight: ~34 kcal/kg, 1.9g protein, 1g fat, rest carbs
 function getTargets(bw) {
-  const kcal = Math.round((bw * 41) / 10) * 10;
-  const p = Math.round(bw * 2);
-  const f = Math.round(bw * 1.2);
+  const kcal = Math.round((bw * 34) / 10) * 10;
+  const p = Math.round(bw * 1.9);
+  const f = Math.round(bw * 1);
   const c = Math.round((kcal - p * 4 - f * 9) / 4);
   return { kcal, p, c, f };
 }
@@ -136,13 +138,13 @@ const WORKOUT_SPLIT = [
 ];
 
 const RULES = [
-  { icon: TrendingUp, label: 'Protein Target', value: '2g per kg body weight, over 5–6 meals' },
-  { icon: TrendingUp, label: 'Calories',       value: 'Lean-bulk surplus of only +250–300 kcal' },
-  { icon: Droplets,   label: 'Water Daily',    value: '3 litres minimum' },
-  { icon: BedDouble,  label: 'Sleep',          value: '7–8 hours every night' },
-  { icon: TrendingUp, label: 'Weight Gain',    value: '0.25–0.5 kg per week (faster = belly fat)' },
-  { icon: Dumbbell,   label: 'Training',       value: '5 days/week, progressive overload, abs 3x/week' },
-  { icon: TrendingUp, label: 'Steps',          value: '8–10k steps daily keeps abs visible' },
+  { icon: TrendingUp, label: 'Protein Target', value: 'About 105–140 g/day, spread across meals' },
+  { icon: TrendingUp, label: 'Calories',       value: 'Start ~2,100–2,200 kcal/day, then adjust from progress' },
+  { icon: Droplets,   label: 'Water Daily',    value: 'Drink enough water, spread through the day' },
+  { icon: BedDouble,  label: 'Sleep',          value: '7–9 hours every night' },
+  { icon: Scale,      label: 'Progress Check', value: 'Weigh in several times/week, waist once/week for 2–3 weeks, then adjust portions modestly' },
+  { icon: Dumbbell,   label: 'Training',       value: 'Progressive resistance training + daily activity' },
+  { icon: TrendingUp, label: 'Fat Loss',       value: 'Overall fat loss — not spot reduction — makes abs visible' },
 ];
 
 const TIMELINE_TIMES = [
@@ -150,7 +152,6 @@ const TIMELINE_TIMES = [
   { time: 'Post-Workout',  label: '8:00 AM' },
   { time: 'Breakfast',     label: '9:30 AM' },
   { time: 'Lunch',         label: '1:00 PM' },
-  { time: 'Evening Snack', label: '5:00 PM' },
   { time: 'Dinner',        label: '8:00 PM' },
 ];
 
@@ -402,7 +403,7 @@ function WeightTracker({ bodyWeight }) {
 
         {bodyWeight > 0 && (
           <p className="text-xs text-accent text-center">
-            Your protein target: {Math.round(bodyWeight * 1.8)}–{Math.round(bodyWeight * 2.2)}g / day
+            Your protein target: {Math.round(bodyWeight * 1.6)}–{Math.round(bodyWeight * 2.2)}g / day
           </p>
         )}
       </CardBody>
@@ -646,9 +647,9 @@ export default function WorkoutDiet() {
 
       <div>
         <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2">
-          <Dumbbell className="text-primary" size={24} /> Athletic Diet Plan
+          <Dumbbell className="text-primary" size={24} /> Muscle Gain + Fat-Loss Diet Plan
         </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">Lean bulk + six-pack · ~₹130–150/day · Eggs, soya, milk, peanuts</p>
+        <p className="text-sm text-[var(--text-muted)] mt-1">22 yrs · 65 kg · 173 cm · India/Kerala-style · Eggs, soya, chicken, peanut butter</p>
       </div>
 
       <Tabs
@@ -679,7 +680,7 @@ export default function WorkoutDiet() {
               />
               {bodyWeight > 0 && (
                 <div className="h-10 px-4 flex items-center rounded-lg bg-accent/10 text-accent text-sm font-semibold whitespace-nowrap">
-                  {Math.round(bodyWeight * 1.8)}–{Math.round(bodyWeight * 2.2)}g protein
+                  {Math.round(bodyWeight * 1.6)}–{Math.round(bodyWeight * 2.2)}g protein
                 </div>
               )}
             </CardBody>
@@ -730,7 +731,7 @@ export default function WorkoutDiet() {
               ) : (
                 <p className="text-xs text-[var(--text-muted)]">Enter your body weight above for personal targets. Plan is built for ~65 kg.</p>
               )}
-              <p className="text-xs text-[var(--text-muted)]">Split: ~21% protein · ~51% carbs · ~29% fat</p>
+              <p className="text-xs text-[var(--text-muted)]">Split: ~27% protein · ~44% carbs · ~28% fat</p>
             </CardBody>
           </Card>
 
@@ -797,6 +798,24 @@ export default function WorkoutDiet() {
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-4 text-center">
                 No junk · No fried foods · No excess sugar
+              </p>
+            </CardBody>
+          </Card>
+
+          {/* Portion & Supplement Notes */}
+          <Card className="border-warning/20">
+            <CardHeader icon={<Info size={18} />} title="Portion & Supplement Notes" />
+            <CardBody>
+              <div className="space-y-2">
+                {PORTION_NOTES.map((note, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
+                    <div className="mt-1 w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
+                    <span>{note}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-3">
+                This is a general fitness meal guide, not a medical prescription. Check with a qualified clinician before changing protein intake or using supplements if you have kidney, liver, heart, or other medical conditions.
               </p>
             </CardBody>
           </Card>
