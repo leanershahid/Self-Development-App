@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Dumbbell, Sun, Coffee, Utensils, Moon, Droplets, BedDouble,
   TrendingUp, ChevronDown, ChevronUp, Check, LayoutList, Clock, Scale, Plus, Eye, Timer, Info,
+  ClipboardList, Trash2,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../supabase';
 import {
-  Card, CardHeader, CardBody, Badge, KpiCard, Button, IconButton, Input, Tabs, Table,
+  Card, CardHeader, CardBody, Badge, KpiCard, Button, IconButton, Input, Select, Tabs, Table,
   EmptyState, SkeletonCard, cn,
 } from './ui';
 
@@ -155,6 +156,8 @@ const TIMELINE_TIMES = [
   { time: 'Dinner',        label: '8:00 PM' },
 ];
 
+const LOG_MEAL_TYPES = ['Pre-Workout', 'Post-Workout', 'Breakfast', 'Lunch', 'Dinner', 'Snack/Other'];
+
 function getCurrentMeal() {
   const h = new Date().getHours();
   for (const [name, [start, end]] of Object.entries(MEAL_HOURS)) {
@@ -182,57 +185,78 @@ function MacroChips({ macros }) {
   );
 }
 
+// ── Macro Split Bar ──────────────────────────────────────────────────────────
+function MacroSplitBar({ macros }) {
+  const pKcal = macros.p * 4;
+  const cKcal = macros.c * 4;
+  const fKcal = macros.f * 9;
+  const total = pKcal + cKcal + fKcal || 1;
+  const segments = [
+    { label: 'Protein', kcal: pKcal, color: 'var(--color-accent)' },
+    { label: 'Carbs', kcal: cKcal, color: 'var(--color-primary-hover)' },
+    { label: 'Fat', kcal: fKcal, color: 'var(--color-warning)' },
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex w-full h-2.5 rounded-full overflow-hidden bg-[var(--bg)]">
+        {segments.map((s) => (
+          <div key={s.label} style={{ width: `${(s.kcal / total) * 100}%`, background: s.color }} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {segments.map((s) => (
+          <span key={s.label} className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+            {s.label} · {Math.round((s.kcal / total) * 100)}%
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Meal Card ──────────────────────────────────────────────────────────────
-function MealCard({ meal, checked, onCheck, defaultOpen }) {
+function MealCard({ meal, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { time, subtitle, items, tip, image, macros } = meal;
+  const { time, subtitle, items, tip, image, macros, icon: Icon, color } = meal;
 
   return (
-    <Card className={checked ? 'border-accent/40' : ''}>
+    <Card style={{ borderLeftWidth: 4, borderLeftColor: color }}>
       <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-4 p-4 text-left">
-        <button
-          onClick={(e) => { e.stopPropagation(); onCheck(time); }}
-          className={cn(
-            'w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors',
-            checked ? 'bg-accent/15 border-accent text-accent' : 'border-[var(--border)] text-transparent hover:border-primary/40'
-          )}
-        >
-          <Check size={14} />
-        </button>
-
-        <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 border border-[var(--border)]">
-          <img src={image} alt={time} className="w-full h-full object-cover" loading="lazy" />
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `color-mix(in srgb, ${color} 18%, transparent)` }}>
+          <Icon size={20} style={{ color }} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className={cn('font-semibold text-sm', checked ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text)]')}>{time}</p>
+          <p className="font-semibold text-sm text-[var(--text)]">{time}</p>
           <p className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
             {subtitle} · {macros.kcal} kcal · {macros.p}g P
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {checked && <Badge variant="success">Done</Badge>}
           {open ? <ChevronUp size={16} className="text-[var(--text-muted)]" /> : <ChevronDown size={16} className="text-[var(--text-muted)]" />}
         </div>
       </button>
 
       {open && (
         <CardBody className="pt-0 border-t border-[var(--border)]">
-          <div className="rounded-lg overflow-hidden mb-4 bg-[var(--bg)]">
-            <img src={image} alt={time} className="w-full object-contain max-h-64" loading="lazy" />
+          <div className="relative rounded-lg overflow-hidden mb-4 h-40 bg-[var(--bg)]">
+            <img src={image} alt={time} className="w-full h-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <p className="absolute bottom-2 left-3 text-sm font-semibold text-white drop-shadow">{time}</p>
           </div>
           <MacroChips macros={macros} />
           <div className="space-y-2 mb-4">
             {items.map((item) => (
               <div key={item} className="flex items-start gap-2 text-sm text-[var(--text)]">
-                <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <div className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
                 <span>{item}</span>
               </div>
             ))}
           </div>
-          <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
-            <p className="text-xs text-primary">{tip}</p>
+          <div className="p-3 rounded-lg border" style={{ background: `color-mix(in srgb, ${color} 8%, transparent)`, borderColor: `color-mix(in srgb, ${color} 20%, transparent)` }}>
+            <p className="text-xs" style={{ color }}>{tip}</p>
           </div>
         </CardBody>
       )}
@@ -241,54 +265,249 @@ function MealCard({ meal, checked, onCheck, defaultOpen }) {
 }
 
 // ── Timeline View ──────────────────────────────────────────────────────────
-function TimelineView({ meals, checked, onCheck }) {
+function TimelineView({ meals }) {
   const currentMeal = getCurrentMeal();
   return (
-    <div className="flex flex-col gap-3">
+    <div className="relative flex flex-col gap-3 pl-5">
+      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-[var(--border)]" />
       {meals.map((meal) => {
         const tl = TIMELINE_TIMES.find((t) => t.time === meal.time);
         const isCurrent = meal.time === currentMeal;
-        const isChecked = checked[meal.time];
+        const Icon = meal.icon;
+        const color = meal.color;
         return (
-          <Card key={meal.time} className={cn(isCurrent && 'border-primary/40', isChecked && 'border-accent/40')}>
-            <CardBody className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-[var(--text-muted)]">{tl?.label}</span>
-                    {isCurrent && <Badge variant="info">Current</Badge>}
+          <div key={meal.time} className="relative">
+            <div
+              className="absolute -left-5 top-6 w-3.5 h-3.5 rounded-full border-2"
+              style={{ background: color, borderColor: color }}
+            />
+            <Card className={cn(isCurrent && 'border-primary/40')} style={{ borderLeftWidth: 4, borderLeftColor: color }}>
+              <CardBody className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `color-mix(in srgb, ${color} 18%, transparent)` }}>
+                      <Icon size={16} style={{ color }} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs text-[var(--text-muted)]">{tl?.label}</span>
+                        {isCurrent && <Badge variant="info">Current</Badge>}
+                      </div>
+                      <p className="font-semibold text-sm text-[var(--text)]">{meal.time}</p>
+                    </div>
                   </div>
-                  <p className={cn('font-semibold text-sm', isChecked ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text)]')}>{meal.time}</p>
                 </div>
-                <button
-                  onClick={() => onCheck(meal.time)}
-                  className={cn(
-                    'w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors',
-                    isChecked ? 'bg-accent/15 border-accent text-accent' : 'border-[var(--border)] text-transparent hover:border-primary/40'
-                  )}
-                >
-                  <Check size={14} />
-                </button>
-              </div>
 
-              <MacroChips macros={meal.macros} />
-              <div className="space-y-1.5">
-                {meal.items.map((item) => (
-                  <div key={item} className="flex items-start gap-2 text-sm text-[var(--text)]">
-                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
+                <MacroChips macros={meal.macros} />
+                <div className="space-y-1.5">
+                  {meal.items.map((item) => (
+                    <div key={item} className="flex items-start gap-2 text-sm text-[var(--text)]">
+                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
-                <p className="text-xs text-primary">{meal.tip}</p>
-              </div>
-            </CardBody>
-          </Card>
+                <div className="p-3 rounded-lg border" style={{ background: `color-mix(in srgb, ${color} 8%, transparent)`, borderColor: `color-mix(in srgb, ${color} 20%, transparent)` }}>
+                  <p className="text-xs" style={{ color }}>{meal.tip}</p>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
         );
       })}
     </div>
+  );
+}
+
+// ── Food Logger ────────────────────────────────────────────────────────────
+function FoodLogger({ targets }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [mealType, setMealType] = useState(LOG_MEAL_TYPES[0]);
+  const [foodName, setFoodName] = useState('');
+  const [kcal, setKcal] = useState('');
+  const [protein, setProtein] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [fat, setFat] = useState('');
+
+  useEffect(() => { loadLogs(); }, []);
+
+  const loadLogs = async () => {
+    const { data } = await supabase
+      .from('food_logs')
+      .select('*')
+      .eq('date', TODAY)
+      .order('created_at', { ascending: true });
+    setLogs(data || []);
+    setLoading(false);
+  };
+
+  const addLog = async (entry) => {
+    setSaving(true);
+    await supabase.from('food_logs').insert({
+      date: TODAY,
+      meal_type: entry.mealType,
+      food_name: entry.foodName,
+      kcal: entry.kcal || 0,
+      protein: entry.protein || 0,
+      carbs: entry.carbs || 0,
+      fat: entry.fat || 0,
+    });
+    await loadLogs();
+    setSaving(false);
+  };
+
+  const handleManualAdd = () => {
+    if (!foodName.trim()) return;
+    addLog({
+      mealType,
+      foodName: foodName.trim(),
+      kcal: parseFloat(kcal) || 0,
+      protein: parseFloat(protein) || 0,
+      carbs: parseFloat(carbs) || 0,
+      fat: parseFloat(fat) || 0,
+    });
+    setFoodName(''); setKcal(''); setProtein(''); setCarbs(''); setFat('');
+  };
+
+  const handleQuickAdd = (meal) => {
+    addLog({
+      mealType: meal.time,
+      foodName: meal.subtitle,
+      kcal: meal.macros.kcal,
+      protein: meal.macros.p,
+      carbs: meal.macros.c,
+      fat: meal.macros.f,
+    });
+  };
+
+  const removeLog = async (id) => {
+    setLogs((prev) => prev.filter((l) => l.id !== id));
+    await supabase.from('food_logs').delete().eq('id', id);
+  };
+
+  const totals = logs.reduce(
+    (t, l) => ({
+      kcal: t.kcal + Number(l.kcal || 0),
+      p: t.p + Number(l.protein || 0),
+      c: t.c + Number(l.carbs || 0),
+      f: t.f + Number(l.fat || 0),
+    }),
+    { kcal: 0, p: 0, c: 0, f: 0 }
+  );
+
+  const grouped = LOG_MEAL_TYPES.map((type) => ({
+    type,
+    entries: logs.filter((l) => l.meal_type === type),
+  })).filter((g) => g.entries.length);
+
+  const quickAddMeal = MEALS_ALL.find((m) => m.time === mealType);
+
+  return (
+    <Card>
+      <CardHeader icon={<ClipboardList size={18} />} title="Log Eaten Food" subtitle="Track what you actually ate today, by meal" />
+      <CardBody className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
+            <p className="text-sm font-bold text-warning">{Math.round(totals.kcal)}</p>
+            <p className="text-[10px] uppercase text-[var(--text-muted)]">Kcal logged</p>
+          </div>
+          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
+            <p className="text-sm font-bold text-accent">{Math.round(totals.p)}</p>
+            <p className="text-[10px] uppercase text-[var(--text-muted)]">Protein g</p>
+          </div>
+          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
+            <p className="text-sm font-bold text-primary">{Math.round(totals.c)}</p>
+            <p className="text-[10px] uppercase text-[var(--text-muted)]">Carbs g</p>
+          </div>
+          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
+            <p className="text-sm font-bold text-[var(--text-muted)]">{Math.round(totals.f)}</p>
+            <p className="text-[10px] uppercase text-[var(--text-muted)]">Fat g</p>
+          </div>
+        </div>
+
+        {targets && (
+          <p className="text-xs text-accent">
+            Target: {targets.kcal} kcal · {targets.p}g protein · {targets.c}g carbs · {targets.f}g fat
+          </p>
+        )}
+
+        <div className="flex flex-col gap-3 p-4 rounded-lg bg-[var(--bg)] border border-[var(--border)]">
+          <Select label="Meal type" value={mealType} onChange={(e) => setMealType(e.target.value)}>
+            {LOG_MEAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </Select>
+
+          {quickAddMeal && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleQuickAdd(quickAddMeal)}
+              disabled={saving}
+              icon={<Plus size={14} />}
+              className="self-start"
+            >
+              Log full {quickAddMeal.time} plan · {quickAddMeal.macros.kcal} kcal · {quickAddMeal.macros.p}g P
+            </Button>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <Input className="col-span-2 sm:col-span-2" placeholder="Food name" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
+            <Input type="number" placeholder="Kcal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
+            <Input type="number" placeholder="Protein g" value={protein} onChange={(e) => setProtein(e.target.value)} />
+            <Input type="number" placeholder="Carbs g" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+          </div>
+          <div className="flex gap-2">
+            <Input type="number" placeholder="Fat g" value={fat} onChange={(e) => setFat(e.target.value)} className="flex-1" />
+            <Button onClick={handleManualAdd} disabled={saving || !foodName.trim()} loading={saving} icon={<Plus size={14} />}>
+              Add
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <SkeletonCard />
+        ) : grouped.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardList size={20} />}
+            title="Nothing logged yet"
+            message="Log a meal above to start tracking today's intake."
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {grouped.map((g) => {
+              const meal = MEALS_ALL.find((m) => m.time === g.type);
+              const groupTotals = g.entries.reduce(
+                (t, l) => ({ kcal: t.kcal + Number(l.kcal || 0), p: t.p + Number(l.protein || 0) }),
+                { kcal: 0, p: 0 }
+              );
+              return (
+                <div key={g.type}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: meal?.color || 'var(--text-muted)' }}>{g.type}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{Math.round(groupTotals.kcal)} kcal · {Math.round(groupTotals.p)}g P</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {g.entries.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)]">
+                        <div className="min-w-0">
+                          <p className="text-sm text-[var(--text)] truncate">{entry.food_name}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{entry.kcal} kcal · {entry.protein}g P · {entry.carbs}g C · {entry.fat}g F</p>
+                        </div>
+                        <IconButton label="Remove" variant="danger" size="sm" onClick={() => removeLog(entry.id)}>
+                          <Trash2 size={14} />
+                        </IconButton>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -613,29 +832,13 @@ export default function WorkoutDiet() {
   const [isWorkoutDay, setIsWorkoutDay] = useState(true);
   const [view, setView] = useState('cards'); // 'cards' | 'timeline'
   const [bodyWeight, setBodyWeight] = useState(() => parseFloat(localStorage.getItem('wd_bodyweight') || '0'));
-  const [checked, setChecked] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('wd_checked') || '{}');
-      return saved.date === TODAY ? saved.meals : {};
-    } catch { return {}; }
-  });
 
   const currentMeal = getCurrentMeal();
 
   const meals = isWorkoutDay ? MEALS_ALL : MEALS_ALL.filter(m => !m.workoutOnly);
 
   const planTotals = sumMacros(meals);
-  const eaten = sumMacros(meals.filter(m => checked[m.time]));
   const targets = bodyWeight > 0 ? getTargets(bodyWeight) : null;
-
-  const completedCount = meals.filter(m => checked[m.time]).length;
-  const totalCount = meals.length;
-
-  const handleCheck = (mealTime) => {
-    const next = { ...checked, [mealTime]: !checked[mealTime] };
-    setChecked(next);
-    localStorage.setItem('wd_checked', JSON.stringify({ date: TODAY, meals: next }));
-  };
 
   const handleBodyWeight = (val) => {
     setBodyWeight(val);
@@ -645,11 +848,36 @@ export default function WorkoutDiet() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
 
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text)] flex items-center gap-2">
-          <Dumbbell className="text-primary" size={24} /> Muscle Gain + Fat-Loss Diet Plan
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">22 yrs · 65 kg · 173 cm · India/Kerala-style · Eggs, soya, chicken, peanut butter</p>
+      <div
+        className="relative overflow-hidden rounded-2xl border border-[var(--border)] p-6 sm:p-8"
+        style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 16%, var(--surface)) 0%, var(--surface) 65%)' }}
+      >
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="relative flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+              <Dumbbell size={22} />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-[var(--text)] leading-tight">Muscle Gain + Fat-Loss Diet Plan</h1>
+              <p className="text-sm text-[var(--text-muted)] mt-0.5">22 yrs · 65 kg · 173 cm · India/Kerala-style</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-3 py-2.5 text-center backdrop-blur-sm">
+              <p className="text-lg font-bold text-[var(--text)] tabular-nums">2,100–2,200</p>
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">kcal / day</p>
+            </div>
+            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-3 py-2.5 text-center backdrop-blur-sm">
+              <p className="text-lg font-bold text-accent tabular-nums">105–140</p>
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">protein g / day</p>
+            </div>
+            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-3 py-2.5 text-center backdrop-blur-sm">
+              <p className="text-sm sm:text-base font-bold text-[var(--text)] truncate">{currentMeal || '—'}</p>
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">now</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Tabs
@@ -719,43 +947,33 @@ export default function WorkoutDiet() {
           {/* Daily macros */}
           <Card>
             <CardHeader icon={<TrendingUp size={18} />} title={`Daily Macros · ${isWorkoutDay ? 'Workout' : 'Rest'} Day`} />
-            <CardBody className="flex flex-col gap-3">
+            <CardBody className="flex flex-col gap-4">
               <MacroChips macros={planTotals} />
-              <p className="text-xs text-[var(--text-muted)]">
-                Eaten so far: {eaten.kcal} kcal · {eaten.p}g protein · {eaten.c}g carbs · {eaten.f}g fat
-              </p>
-              {targets ? (
-                <p className="text-xs text-accent">
-                  Your target ({bodyWeight} kg): {targets.kcal} kcal · {targets.p}g protein · {targets.c}g carbs · {targets.f}g fat
-                </p>
-              ) : (
-                <p className="text-xs text-[var(--text-muted)]">Enter your body weight above for personal targets. Plan is built for ~65 kg.</p>
-              )}
-              <p className="text-xs text-[var(--text-muted)]">Split: ~27% protein · ~44% carbs · ~28% fat</p>
+              <MacroSplitBar macros={planTotals} />
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--border)]">
+                {targets ? (
+                  <p className="text-xs text-accent">
+                    Your target ({bodyWeight} kg): {targets.kcal} kcal · {targets.p}g protein · {targets.c}g carbs · {targets.f}g fat
+                  </p>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">Enter your body weight above for personal targets. Plan is built for ~65 kg.</p>
+                )}
+              </div>
             </CardBody>
           </Card>
 
-          {/* Progress */}
-          <KpiCard
-            icon={<Check size={18} />}
-            label="Today's Meals"
-            value={`${completedCount}/${totalCount}`}
-            tone={completedCount === totalCount ? 'accent' : 'primary'}
-            progress={totalCount ? (completedCount / totalCount) * 100 : 0}
-            footer={completedCount === totalCount && totalCount > 0 ? <p className="text-xs text-accent">All meals done! Great discipline.</p> : null}
-          />
+          {/* Food Logger */}
+          <FoodLogger targets={targets || planTotals} />
 
           {/* Meal list */}
           {view === 'cards' ? (
             <div className="flex flex-col gap-3">
               {meals.map(meal => (
-                <MealCard key={meal.time} meal={meal} checked={!!checked[meal.time]}
-                  onCheck={handleCheck}
-                  defaultOpen={meal.time === currentMeal} />
+                <MealCard key={meal.time} meal={meal} defaultOpen={meal.time === currentMeal} />
               ))}
             </div>
           ) : (
-            <TimelineView meals={meals} checked={checked} onCheck={handleCheck} />
+            <TimelineView meals={meals} />
           )}
 
           {/* Weekly workout split */}
@@ -806,11 +1024,11 @@ export default function WorkoutDiet() {
           <Card className="border-warning/20">
             <CardHeader icon={<Info size={18} />} title="Portion & Supplement Notes" />
             <CardBody>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {PORTION_NOTES.map((note, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
-                    <div className="mt-1 w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
-                    <span>{note}</span>
+                  <div key={i} className="flex items-start gap-3 text-xs text-[var(--text-muted)]">
+                    <span className="mt-0.5 w-5 h-5 rounded-full bg-warning/15 text-warning text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                    <span className="leading-relaxed">{note}</span>
                   </div>
                 ))}
               </div>
