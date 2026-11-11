@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Dumbbell, Sun, Coffee, Utensils, Moon, Droplets, BedDouble,
   TrendingUp, ChevronDown, ChevronUp, Check, LayoutList, Clock, Scale, Plus, Eye, Timer, Info,
-  ClipboardList, Trash2,
+  ClipboardList, Trash2, Sparkles,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../supabase';
@@ -12,6 +12,36 @@ import {
 } from './ui';
 
 const TODAY = new Date().toISOString().split('T')[0];
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+// Ask Gemini to estimate macros for a food/serving description, as strict JSON.
+async function estimateMacrosWithGemini(foodName) {
+  if (!GEMINI_API_KEY) throw new Error('Gemini API key not found (VITE_GEMINI_API_KEY).');
+  const prompt = `Estimate the nutrition for this food or serving: "${foodName}".
+Respond with ONLY a compact JSON object, no markdown fences, no extra text, in exactly this shape:
+{"kcal": number, "protein": number, "carbs": number, "fat": number}
+kcal is total calories; protein, carbs, fat are grams. If no quantity is given, assume one typical serving.`;
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+  const json = await res.json();
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('Could not parse AI response.');
+  const parsed = JSON.parse(match[0]);
+  return {
+    kcal: Math.round(Number(parsed.kcal) || 0),
+    protein: Math.round(Number(parsed.protein) || 0),
+    carbs: Math.round(Number(parsed.carbs) || 0),
+    fat: Math.round(Number(parsed.fat) || 0),
+  };
+}
 
 // hour range when each meal is "current"
 const MEAL_HOURS = {
@@ -331,6 +361,8 @@ function FoodLogger({ targets }) {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
+  const [estimating, setEstimating] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   useEffect(() => { loadLogs(); }, []);
 
@@ -370,6 +402,23 @@ function FoodLogger({ targets }) {
       fat: parseFloat(fat) || 0,
     });
     setFoodName(''); setKcal(''); setProtein(''); setCarbs(''); setFat('');
+  };
+
+  const handleEstimate = async () => {
+    if (!foodName.trim() || estimating) return;
+    setEstimating(true);
+    setAiError(null);
+    try {
+      const est = await estimateMacrosWithGemini(foodName.trim());
+      setKcal(String(est.kcal));
+      setProtein(String(est.protein));
+      setCarbs(String(est.carbs));
+      setFat(String(est.fat));
+    } catch (err) {
+      setAiError(err.message);
+    } finally {
+      setEstimating(false);
+    }
   };
 
   const handleQuickAdd = (meal) => {
@@ -452,18 +501,29 @@ function FoodLogger({ targets }) {
             </Button>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            <Input className="col-span-2 sm:col-span-2" placeholder="Food name" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
+          <div className="flex gap-2">
+            <Input className="flex-1" placeholder="Food name (e.g. 2 boiled eggs)" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
+            <Button
+              variant="secondary"
+              onClick={handleEstimate}
+              disabled={estimating || !foodName.trim()}
+              loading={estimating}
+              icon={<Sparkles size={14} />}
+            >
+              Estimate
+            </Button>
+          </div>
+          {aiError && <p className="text-xs text-danger">{aiError}</p>}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <Input type="number" placeholder="Kcal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
             <Input type="number" placeholder="Protein g" value={protein} onChange={(e) => setProtein(e.target.value)} />
             <Input type="number" placeholder="Carbs g" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+            <Input type="number" placeholder="Fat g" value={fat} onChange={(e) => setFat(e.target.value)} />
           </div>
-          <div className="flex gap-2">
-            <Input type="number" placeholder="Fat g" value={fat} onChange={(e) => setFat(e.target.value)} className="flex-1" />
-            <Button onClick={handleManualAdd} disabled={saving || !foodName.trim()} loading={saving} icon={<Plus size={14} />}>
-              Add
-            </Button>
-          </div>
+          <Button onClick={handleManualAdd} disabled={saving || !foodName.trim()} loading={saving} icon={<Plus size={14} />} className="self-start">
+            Add to log
+          </Button>
         </div>
 
         {loading ? (
