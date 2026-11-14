@@ -16,12 +16,17 @@ export default function Modal({ open, onClose, title, size = 'md', children, foo
       if (e.key === 'Escape') onClose?.();
     };
     document.addEventListener('keydown', handleKey);
-    const t = setTimeout(() => panelRef.current?.querySelector('input, textarea, select, button')?.focus(), 50);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-      clearTimeout(t);
-    };
+    return () => document.removeEventListener('keydown', handleKey);
   }, [open, onClose]);
+
+  // Only runs when the modal transitions open — intentionally excludes `onClose`
+  // from deps, since parent re-renders (e.g. on every keystroke) recreate that
+  // inline callback and would otherwise steal focus back to the first field.
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => panelRef.current?.querySelector('input, textarea, select, button')?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [open]);
 
   return createPortal(
     <AnimatePresence>
