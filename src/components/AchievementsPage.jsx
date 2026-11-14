@@ -28,11 +28,14 @@ import {
   EmptyState,
   SkeletonCard,
   Tabs,
+  Switch,
   useToast,
 } from "./ui";
 import AchievementCalendar from "./AchievementCalendar";
 import { syncAchievementRewards } from "../utils/syncAchievementRewards";
 import { supabase } from "../supabase";
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function AchievementsPage() {
   const toast = useToast();
@@ -40,6 +43,7 @@ export default function AchievementsPage() {
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [viewMode, setViewMode] = useState("grid");
+  const [excludeDaysEnabled, setExcludeDaysEnabled] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -47,6 +51,7 @@ export default function AchievementsPage() {
     target_value: "",
     start_date: new Date().toISOString().split("T")[0],
     target_date: "",
+    excluded_days: [],
   });
 
   useEffect(() => {
@@ -54,6 +59,11 @@ export default function AchievementsPage() {
   }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
+
+  function dayOfWeek(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d).getDay();
+  }
 
   async function fetchAchievements() {
     setLoading(true);
@@ -122,6 +132,11 @@ export default function AchievementsPage() {
     }
 
     const achievement = achievements.find((a) => a.id === achievementId);
+    if (achievement?.excluded_days?.includes(dayOfWeek(dateStr))) {
+      toast.error("This day is excluded for this achievement.");
+      return;
+    }
+
     const existing = achievement?.logs.find((l) => l.log_date === dateStr);
     // clicking the already-active state clears that day's log back to unmarked
     const clearing = existing && existing.done === done;
@@ -226,6 +241,7 @@ export default function AchievementsPage() {
       current_value: 0,
       start_date: form.start_date,
       target_date: form.target_date,
+      excluded_days: form.excluded_days,
     });
 
     if (error) {
@@ -241,7 +257,9 @@ export default function AchievementsPage() {
       target_value: "",
       start_date: new Date().toISOString().split("T")[0],
       target_date: "",
+      excluded_days: [],
     });
+    setExcludeDaysEnabled(false);
 
     setFormOpen(false);
     await fetchAchievements();
@@ -400,6 +418,55 @@ export default function AchievementsPage() {
               required
             />
           </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-[var(--text)]">
+                Exclude Days (optional)
+              </label>
+              <Switch
+                checked={excludeDaysEnabled}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setExcludeDaysEnabled(checked);
+                  if (!checked) setForm((f) => ({ ...f, excluded_days: [] }));
+                }}
+              />
+            </div>
+            {excludeDaysEnabled && (
+              <>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {WEEKDAY_LABELS.map((label, idx) => {
+                    const active = form.excluded_days.includes(idx);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            excluded_days: active
+                              ? f.excluded_days.filter((d) => d !== idx)
+                              : [...f.excluded_days, idx],
+                          }))
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          active
+                            ? "bg-danger/10 border-danger/40 text-danger"
+                            : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)] hover:border-primary/40 hover:text-primary"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-1.5">
+                  Selected days are locked in the calendar — no log needed.
+                </p>
+              </>
+            )}
+          </div>
         </form>
       </Modal>
 
@@ -434,6 +501,7 @@ export default function AchievementsPage() {
             const percentage =
               (achievement.autoCurrentValue / achievement.target_value) * 100;
             const isCompleted = percentage >= 100;
+            const todayExcluded = (achievement.excluded_days || []).includes(new Date().getDay());
 
             return (
               <Card
@@ -555,34 +623,38 @@ export default function AchievementsPage() {
                           Today's Log
                         </div>
                         <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                          {achievement.todayLog
-                            ? achievement.todayLog.done
-                              ? "Marked as done today"
-                              : "Marked as missed today"
-                            : "Not logged yet today"}
+                          {todayExcluded
+                            ? "Excluded day — no log needed"
+                            : achievement.todayLog
+                              ? achievement.todayLog.done
+                                ? "Marked as done today"
+                                : "Marked as missed today"
+                              : "Not logged yet today"}
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={achievement.todayLog?.done ? "success" : "secondary"}
-                        icon={<Check size={14} />}
-                        className="flex-1"
-                        onClick={() => markDay(achievement.id, true)}
-                      >
-                        Did
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={achievement.todayLog && !achievement.todayLog.done ? "danger" : "secondary"}
-                        icon={<X size={14} />}
-                        className="flex-1"
-                        onClick={() => markDay(achievement.id, false)}
-                      >
-                        Didn't
-                      </Button>
-                    </div>
+                    {!todayExcluded && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant={achievement.todayLog?.done ? "success" : "secondary"}
+                          icon={<Check size={14} />}
+                          className="flex-1"
+                          onClick={() => markDay(achievement.id, true)}
+                        >
+                          Did
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={achievement.todayLog && !achievement.todayLog.done ? "danger" : "secondary"}
+                          icon={<X size={14} />}
+                          className="flex-1"
+                          onClick={() => markDay(achievement.id, false)}
+                        >
+                          Didn't
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Linked Reward */}

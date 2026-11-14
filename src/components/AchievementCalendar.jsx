@@ -149,7 +149,8 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
               const isFuture = dateStr > todayStr;
               const isToday = dateStr === todayStr;
               const beforeStart = achievement.start_date && dateStr < achievement.start_date;
-              const disabled = isFuture || beforeStart;
+              const isExcluded = (achievement.excluded_days || []).includes(date.getDay());
+              const disabled = isFuture || beforeStart || isExcluded;
               const isLastCol = (i + 1) % 7 === 0;
               const isLastRow = i >= cells.length - 7;
 
@@ -158,7 +159,7 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
                   key={dateStr}
                   disabled={disabled}
                   onClick={() => onToggleDay(achievement.id, dateStr, log)}
-                  title={disabled ? "Can't log this day" : dateStr}
+                  title={isExcluded ? 'Excluded day — not required' : disabled ? "Can't log this day" : dateStr}
                   className={`group relative aspect-square flex flex-col items-center justify-center gap-0.5 text-sm font-medium transition-colors duration-200
                     border-[var(--border)] ${isLastCol ? '' : 'border-r'} ${isLastRow ? '' : 'border-b'}
                     ${disabled
@@ -172,7 +173,9 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
                   {isToday && !log && (
                     <span className="absolute inset-1 rounded-md ring-2 ring-primary/60 pointer-events-none" />
                   )}
-                  <span className={isToday && !log ? 'text-primary font-bold' : ''}>{date.getDate()}</span>
+                  <span className={`${isToday && !log ? 'text-primary font-bold' : ''} ${isExcluded ? 'line-through decoration-2' : ''}`}>
+                    {date.getDate()}
+                  </span>
                   {log?.done && <Check size={12} strokeWidth={3} />}
                   {log && !log.done && <X size={12} strokeWidth={3} />}
                 </button>
@@ -187,6 +190,7 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[5px] bg-danger" /> Missed</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[5px] bg-[var(--surface-hover)] border border-[var(--border)]" /> Not logged</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[5px] ring-2 ring-primary/60" /> Today</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[5px] opacity-30 bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[8px] line-through">5</span> Excluded day</span>
         </div>
       </CardBody>
     </Card>
