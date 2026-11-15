@@ -156,7 +156,7 @@ async function callGemini(messages) {
     const body = {
         contents,
         ...(systemMsg ? { systemInstruction: { parts: [{ text: systemMsg.content }] } } : {}),
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } },
     };
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent", {
         method: "POST",

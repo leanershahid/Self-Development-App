@@ -43,7 +43,7 @@ If you cannot read the bill clearly, make your best reasonable guess. Respond wi
                     { inlineData: { mimeType: file.type || "image/jpeg", data: base64 } },
                 ],
             }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 768, thinkingConfig: { thinkingBudget: 0 } },
         }),
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
