@@ -37,6 +37,15 @@ import { supabase } from "../supabase";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Builds a local YYYY-MM-DD string — avoids toISOString(), which converts
+// to UTC first and can shift the date by a day for timezones ahead of UTC.
+function toLocalDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function AchievementsPage() {
   const toast = useToast();
   const [achievements, setAchievements] = useState([]);
@@ -49,7 +58,7 @@ export default function AchievementsPage() {
     title: "",
     description: "",
     target_value: "",
-    start_date: new Date().toISOString().split("T")[0],
+    start_date: toLocalDateStr(new Date()),
     target_date: "",
     excluded_days: [],
   });
@@ -58,7 +67,7 @@ export default function AchievementsPage() {
     fetchAchievements();
   }, []);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = toLocalDateStr(new Date());
 
   function dayOfWeek(dateStr) {
     const [y, m, d] = dateStr.split("-").map(Number);
@@ -255,7 +264,7 @@ export default function AchievementsPage() {
       title: "",
       description: "",
       target_value: "",
-      start_date: new Date().toISOString().split("T")[0],
+      start_date: toLocalDateStr(new Date()),
       target_date: "",
       excluded_days: [],
     });

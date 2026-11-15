@@ -7,7 +7,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../supabase';
 import {
-  Card, CardHeader, CardBody, Badge, KpiCard, Button, IconButton, Input, Select, Tabs, Table,
+  Card, CardHeader, CardBody, Badge, KpiCard, Button, IconButton, Input, Tabs, Table,
   EmptyState, SkeletonCard, cn,
 } from './ui';
 
@@ -26,7 +26,7 @@ kcal is total calories; protein, carbs, fat are grams. If no quantity is given, 
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
+      generationConfig: { temperature: 0.2, maxOutputTokens: 512, thinkingConfig: { thinkingBudget: 0 } },
     }),
   });
   if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
@@ -454,39 +454,74 @@ function FoodLogger({ targets }) {
 
   const quickAddMeal = MEALS_ALL.find((m) => m.time === mealType);
 
+  const MACRO_STATS = [
+    { key: 'kcal', label: 'Kcal logged', value: totals.kcal, target: targets?.kcal, color: 'var(--color-warning)', textClass: 'text-warning' },
+    { key: 'p', label: 'Protein g', value: totals.p, target: targets?.p, color: 'var(--color-accent)', textClass: 'text-accent' },
+    { key: 'c', label: 'Carbs g', value: totals.c, target: targets?.c, color: 'var(--color-primary)', textClass: 'text-primary' },
+    { key: 'f', label: 'Fat g', value: totals.f, target: targets?.f, color: 'var(--text-muted)', textClass: 'text-[var(--text-muted)]' },
+  ];
+
   return (
     <Card>
-      <CardHeader icon={<ClipboardList size={18} />} title="Log Eaten Food" subtitle="Track what you actually ate today, by meal" />
-      <CardBody className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
-            <p className="text-sm font-bold text-warning">{Math.round(totals.kcal)}</p>
-            <p className="text-[10px] uppercase text-[var(--text-muted)]">Kcal logged</p>
-          </div>
-          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
-            <p className="text-sm font-bold text-accent">{Math.round(totals.p)}</p>
-            <p className="text-[10px] uppercase text-[var(--text-muted)]">Protein g</p>
-          </div>
-          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
-            <p className="text-sm font-bold text-primary">{Math.round(totals.c)}</p>
-            <p className="text-[10px] uppercase text-[var(--text-muted)]">Carbs g</p>
-          </div>
-          <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] py-2 text-center">
-            <p className="text-sm font-bold text-[var(--text-muted)]">{Math.round(totals.f)}</p>
-            <p className="text-[10px] uppercase text-[var(--text-muted)]">Fat g</p>
-          </div>
+      <CardHeader
+        icon={<ClipboardList size={18} />}
+        title="Log Eaten Food"
+        subtitle="Track what you actually ate today, by meal"
+        action={logs.length > 0 ? <Badge variant="neutral">{logs.length} entries</Badge> : null}
+      />
+      <CardBody className="flex flex-col gap-5">
+        {/* Macro summary with progress vs target */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {MACRO_STATS.map((stat) => {
+            const pct = stat.target ? Math.min(100, Math.round((stat.value / stat.target) * 100)) : null;
+            return (
+              <div key={stat.key} className="rounded-xl bg-[var(--bg)] border border-[var(--border)] p-3">
+                <p className={cn('text-lg font-bold', stat.textClass)}>{Math.round(stat.value)}</p>
+                <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{stat.label}</p>
+                {pct !== null ? (
+                  <>
+                    <div className="h-1.5 mt-2 rounded-full bg-[var(--surface-hover)] overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: stat.color }} />
+                    </div>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">{pct}% of {stat.target}</p>
+                  </>
+                ) : (
+                  <div className="h-1.5 mt-2" />
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {targets && (
-          <p className="text-xs text-accent">
-            Target: {targets.kcal} kcal · {targets.p}g protein · {targets.c}g carbs · {targets.f}g fat
-          </p>
-        )}
+        {/* Add food panel */}
+        <div className="flex flex-col gap-4 p-4 rounded-xl bg-[var(--bg)] border border-[var(--border)]">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0">
+              <Utensils size={14} />
+            </div>
+            <span className="text-sm font-semibold text-[var(--text)]">Add a food</span>
+          </div>
 
-        <div className="flex flex-col gap-3 p-4 rounded-lg bg-[var(--bg)] border border-[var(--border)]">
-          <Select label="Meal type" value={mealType} onChange={(e) => setMealType(e.target.value)}>
-            {LOG_MEAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </Select>
+          <div className="flex flex-wrap gap-1.5">
+            {LOG_MEAL_TYPES.map((t) => {
+              const active = t === mealType;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setMealType(t)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                    active
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] hover:border-primary/30 hover:text-primary'
+                  )}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
 
           {quickAddMeal && (
             <Button
@@ -502,7 +537,13 @@ function FoodLogger({ targets }) {
           )}
 
           <div className="flex gap-2">
-            <Input className="flex-1" placeholder="Food name (e.g. 2 boiled eggs)" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
+            <Input
+              className="flex-1"
+              leadingIcon={<Utensils size={14} />}
+              placeholder="Food name (e.g. 2 boiled eggs)"
+              value={foodName}
+              onChange={(e) => setFoodName(e.target.value)}
+            />
             <Button
               variant="secondary"
               onClick={handleEstimate}
@@ -516,10 +557,10 @@ function FoodLogger({ targets }) {
           {aiError && <p className="text-xs text-danger">{aiError}</p>}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <Input type="number" placeholder="Kcal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
-            <Input type="number" placeholder="Protein g" value={protein} onChange={(e) => setProtein(e.target.value)} />
-            <Input type="number" placeholder="Carbs g" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
-            <Input type="number" placeholder="Fat g" value={fat} onChange={(e) => setFat(e.target.value)} />
+            <Input label="Kcal" type="number" placeholder="0" value={kcal} onChange={(e) => setKcal(e.target.value)} />
+            <Input label="Protein g" type="number" placeholder="0" value={protein} onChange={(e) => setProtein(e.target.value)} />
+            <Input label="Carbs g" type="number" placeholder="0" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+            <Input label="Fat g" type="number" placeholder="0" value={fat} onChange={(e) => setFat(e.target.value)} />
           </div>
           <Button onClick={handleManualAdd} disabled={saving || !foodName.trim()} loading={saving} icon={<Plus size={14} />} className="self-start">
             Add to log
@@ -538,6 +579,8 @@ function FoodLogger({ targets }) {
           <div className="flex flex-col gap-4">
             {grouped.map((g) => {
               const meal = MEALS_ALL.find((m) => m.time === g.type);
+              const MealIcon = meal?.icon;
+              const mealColor = meal?.color || 'var(--text-muted)';
               const groupTotals = g.entries.reduce(
                 (t, l) => ({ kcal: t.kcal + Number(l.kcal || 0), p: t.p + Number(l.protein || 0) }),
                 { kcal: 0, p: 0 }
@@ -545,17 +588,32 @@ function FoodLogger({ targets }) {
               return (
                 <div key={g.type}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: meal?.color || 'var(--text-muted)' }}>{g.type}</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${mealColor}1a`, color: mealColor }}>
+                        {MealIcon ? <MealIcon size={13} /> : <Utensils size={13} />}
+                      </div>
+                      <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: mealColor }}>{g.type}</span>
+                    </div>
                     <span className="text-xs text-[var(--text-muted)]">{Math.round(groupTotals.kcal)} kcal · {Math.round(groupTotals.p)}g P</span>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {g.entries.map((entry) => (
-                      <div key={entry.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)]">
+                      <div
+                        key={entry.id}
+                        className="group flex items-center justify-between gap-2 pl-3 pr-2 py-2.5 rounded-lg bg-[var(--bg)] border border-[var(--border)] border-l-2 transition-colors hover:bg-[var(--surface-hover)]"
+                        style={{ borderLeftColor: mealColor }}
+                      >
                         <div className="min-w-0">
                           <p className="text-sm text-[var(--text)] truncate">{entry.food_name}</p>
                           <p className="text-xs text-[var(--text-muted)]">{entry.kcal} kcal · {entry.protein}g P · {entry.carbs}g C · {entry.fat}g F</p>
                         </div>
-                        <IconButton label="Remove" variant="danger" size="sm" onClick={() => removeLog(entry.id)}>
+                        <IconButton
+                          label="Remove"
+                          variant="danger"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeLog(entry.id)}
+                        >
                           <Trash2 size={14} />
                         </IconButton>
                       </div>

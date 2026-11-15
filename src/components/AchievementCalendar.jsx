@@ -4,8 +4,13 @@ import { Card, CardHeader, CardBody, Select, Button, EmptyState, Badge } from '.
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Builds a local YYYY-MM-DD string — avoids toISOString(), which converts
+// to UTC first and can shift the date by a day for timezones ahead of UTC.
 function toDateStr(d) {
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function buildMonthGrid(year, month) {
