@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dumbbell, ChevronDown, ChevronUp, Plus, TrendingUp, History, Check, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabase';
 import {
@@ -57,47 +57,34 @@ const MOTION_PATHS = {
   hold:               { static: true },
 };
 
-function MotionIcon({ pattern, color = 'var(--color-primary)' }) {
-  const uid = useId();
+// Small badge overlaid on the real exercise photo: an arrow rotated to match
+// that exercise's actual movement direction (derived from MOTION_PATHS), or
+// a hold icon for isometric exercises like planks.
+function MotionArrowOverlay({ pattern, color = 'var(--color-primary)' }) {
   const cfg = MOTION_PATHS[pattern] || MOTION_PATHS.press;
-  const markerId = `motion-arrow-${uid}`;
 
   if (cfg.static) {
     return (
-      <svg viewBox="0 0 100 100" className="w-full h-full">
-        <line x1="10" y1="88" x2="90" y2="88" stroke="var(--border)" strokeWidth="2" />
-        <circle cx="50" cy="52" r="11" fill="none" stroke={color} strokeWidth="2" strokeDasharray="4 3" />
-        <circle cx="50" cy="52" r="4" fill={color} />
-      </svg>
+      <span
+        className="absolute bottom-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed bg-black/50 backdrop-blur-sm"
+        style={{ borderColor: color, color }}
+      >
+        <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+      </span>
     );
   }
 
   const [x1, y1] = cfg.from;
   const [x2, y2] = cfg.to;
-  const mx = (x1 + x2) / 2;
-  const my = (y1 + y2) / 2;
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.hypot(dx, dy) || 1;
-  const nx = -dy / len;
-  const ny = dx / len;
-  const curve = cfg.curve || 0;
-  const cx = mx + nx * curve;
-  const cy = my + ny * curve;
-  const path = curve === 0 ? `M ${x1} ${y1} L ${x2} ${y2}` : `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+  const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
 
   return (
-    <svg viewBox="0 0 100 100" className="w-full h-full">
-      <defs>
-        <marker id={markerId} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill={color} />
-        </marker>
-      </defs>
-      <line x1="10" y1="88" x2="90" y2="88" stroke="var(--border)" strokeWidth="2" />
-      <circle cx={x1} cy={y1} r="6" fill="var(--surface)" stroke={color} strokeWidth="2" strokeDasharray="3 2" opacity="0.65" />
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" markerEnd={`url(#${markerId})`} />
-      <circle cx={x2} cy={y2} r="6" fill={color} />
-    </svg>
+    <span
+      className="absolute bottom-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm"
+      style={{ color }}
+    >
+      <ArrowRight size={16} style={{ transform: `rotate(${angle}deg)` }} />
+    </span>
   );
 }
 
@@ -107,17 +94,17 @@ const BODY_PARTS = [
     theme: 'danger',
     emoji: '🫁',
     exercises: [
-      { name: 'Decline Barbell Press', pattern: 'press', cue: 'Lower bar to lower chest, elbows ~45°',
+      { name: 'Decline Barbell Press', pattern: 'press', img: 'https://wger.de/media/exercise-images/100/Decline-bench-press-1.png', cue: 'Lower bar to lower chest, elbows ~45°',
         steps: ['Lie on decline bench, grip bar shoulder-width', 'Lower bar to lower chest', 'Press up until arms extended'] },
-      { name: 'Smith Machine Bench Press', pattern: 'press', cue: 'Flat back, bar to mid-chest, drive up',
+      { name: 'Smith Machine Bench Press', pattern: 'press', img: 'https://wger.de/media/exercise-images/916/9bf7555a-fec6-43a9-b343-aae496744e5e.png', cue: 'Flat back, bar to mid-chest, drive up',
         steps: ['Lie flat, bar above chest', 'Lower bar to mid-chest', 'Drive up to lockout'] },
-      { name: 'Incline Smith Machine Press', pattern: 'press-incline', cue: '30° bench, press up and slightly back',
+      { name: 'Incline Smith Machine Press', pattern: 'press-incline', img: 'https://wger.de/media/exercise-images/41/Incline-bench-press-1.png', cue: '30° bench, press up and slightly back',
         steps: ['Set 30° incline, bar at upper chest', 'Lower under control', 'Press up and slightly back'] },
-      { name: 'Incline Dumbbell Fly', pattern: 'fly', cue: 'Slight elbow bend, arc dumbbells to chest',
+      { name: 'Incline Dumbbell Fly', pattern: 'fly', img: 'https://wger.de/media/exercise-images/308/2ca22a0a-9843-4bb4-9d12-faf5c8c89180.jpg', cue: 'Slight elbow bend, arc dumbbells to chest',
         steps: ['Lie on incline bench, dumbbells above chest', 'Arc arms out with a slight elbow bend', 'Bring dumbbells back together above chest'] },
-      { name: 'Incline Barbell Press', pattern: 'press-incline', cue: 'Bar path to upper chest, feet planted',
+      { name: 'Incline Barbell Press', pattern: 'press-incline', img: 'https://wger.de/media/exercise-images/41/Incline-bench-press-1.png', cue: 'Bar path to upper chest, feet planted',
         steps: ['Incline bench, bar at upper chest', 'Lower bar to upper chest', 'Press up, feet planted'] },
-      { name: 'Decline Chest Press Machine', pattern: 'press', cue: 'Seat low, press down and forward',
+      { name: 'Decline Chest Press Machine', pattern: 'press', img: 'https://wger.de/media/exercise-images/1831/2d9d509f-707b-4132-961e-91a2459ca198.jpg', cue: 'Seat low, press down and forward',
         steps: ['Seat low, handles at chest', 'Press down and forward', 'Extend arms fully, avoid hard lockout'] },
     ],
   },
@@ -126,19 +113,19 @@ const BODY_PARTS = [
     theme: 'success',
     emoji: '🔙',
     exercises: [
-      { name: 'Wide-Grip Lat Pulldown', pattern: 'pull-down', cue: 'Pull to upper chest, squeeze lats',
+      { name: 'Wide-Grip Lat Pulldown', pattern: 'pull-down', img: 'https://wger.de/media/exercise-images/1127/4942b7c0-6bda-4983-88e5-86547c3d445e.png', cue: 'Pull to upper chest, squeeze lats',
         steps: ['Wide grip, arms extended overhead', 'Pull bar to upper chest', 'Squeeze lats, control back up'] },
-      { name: 'Pull-Ups', pattern: 'pull-up', cue: 'Full hang to chin over bar',
+      { name: 'Pull-Ups', pattern: 'pull-up', img: 'https://wger.de/media/exercise-images/475/b0554016-16fd-4dbe-be47-a2a17d16ae0e.jpg', cue: 'Full hang to chin over bar',
         steps: ['Full hang, arms extended', 'Pull chin over the bar', 'Lower under control to full hang'] },
-      { name: 'Close-Grip Cable Row', pattern: 'row', cue: 'Pull to lower ribs, chest up',
+      { name: 'Close-Grip Cable Row', pattern: 'row', img: 'https://wger.de/media/exercise-images/1117/2555c4c3-a84d-47db-b83b-cbf721f12e45.png', cue: 'Pull to lower ribs, chest up',
         steps: ['Seated, arms extended, chest up', 'Pull handle to lower ribs', 'Squeeze shoulder blades, extend back out'] },
-      { name: 'Reverse Pec Deck', pattern: 'rear-fly', cue: 'Squeeze shoulder blades together',
+      { name: 'Reverse Pec Deck', pattern: 'rear-fly', img: 'https://wger.de/media/exercise-images/822/74affc0d-03b6-4f33-b5f4-a822a2615f68.png', cue: 'Squeeze shoulder blades together',
         steps: ['Chest against pad, arms forward', 'Pull arms back, squeeze shoulder blades', 'Return slow to the start'] },
-      { name: 'Back Extensions', pattern: 'hinge', cue: "Hinge at hips, don't hyperextend spine",
+      { name: 'Back Extensions', pattern: 'hinge', img: 'https://wger.de/media/exercise-images/301/2d5c2f99-b8ff-4095-b515-4c2a85afde70.png', cue: "Hinge at hips, don't hyperextend spine",
         steps: ['Hips on pad, body straight', 'Lower torso forward at the hips', 'Raise to a straight line, no hyperextension'] },
-      { name: 'High Row Machine', pattern: 'row', cue: 'Pull elbows back and down',
+      { name: 'High Row Machine', pattern: 'row', img: 'https://wger.de/media/exercise-images/1117/2555c4c3-a84d-47db-b83b-cbf721f12e45.png', cue: 'Pull elbows back and down',
         steps: ['Grip handles, arms extended', 'Pull elbows back and down', 'Squeeze, then control the return'] },
-      { name: 'Iso-Lateral Row', pattern: 'row', cue: 'Drive elbows back, one arm at a time',
+      { name: 'Iso-Lateral Row', pattern: 'row', img: 'https://wger.de/media/exercise-images/1621/ca1bc68d-9c36-4dd3-8ec4-496c57b5c564.jpg', cue: 'Drive elbows back, one arm at a time',
         steps: ['One handle, arm extended', 'Drive elbow straight back', 'Squeeze, return slow, switch arms'] },
     ],
   },
@@ -147,13 +134,13 @@ const BODY_PARTS = [
     theme: 'info',
     emoji: '💪',
     exercises: [
-      { name: 'Dumbbell Shoulder Press', pattern: 'press-overhead', cue: 'Press up without arching lower back',
+      { name: 'Dumbbell Shoulder Press', pattern: 'press-overhead', img: 'https://wger.de/media/exercise-images/123/dumbbell-shoulder-press-large-1.png', cue: 'Press up without arching lower back',
         steps: ['Dumbbells at shoulder height', 'Press up without arching your back', 'Lower under control to shoulders'] },
-      { name: 'Barbell Overhead Press', pattern: 'press-overhead', cue: 'Brace core, bar path close to face',
+      { name: 'Barbell Overhead Press', pattern: 'press-overhead', img: 'https://wger.de/media/exercise-images/119/seated-barbell-shoulder-press-large-1.png', cue: 'Brace core, bar path close to face',
         steps: ['Bar at collarbone, shoulder-width grip', 'Press bar up, close to the face', 'Lock out overhead, lower slow'] },
-      { name: 'Dumbbell Front Raise', pattern: 'raise-front', cue: 'Raise to shoulder height, controlled',
+      { name: 'Dumbbell Front Raise', pattern: 'raise-front', img: 'https://wger.de/media/exercise-images/256/b7def5bc-2352-499b-b9e5-fff741003831.png', cue: 'Raise to shoulder height, controlled',
         steps: ['Dumbbells in front of thighs', 'Raise to shoulder height', 'Lower with control'] },
-      { name: 'Dumbbell Lateral Raise', pattern: 'raise-lateral', cue: 'Lead with elbows, raise to shoulder line',
+      { name: 'Dumbbell Lateral Raise', pattern: 'raise-lateral', img: 'https://wger.de/media/exercise-images/148/lateral-dumbbell-raises-large-2.png', cue: 'Lead with elbows, raise to shoulder line',
         steps: ['Dumbbells at sides, slight elbow bend', 'Lead with elbows up to shoulder line', 'Lower slowly, no swing'] },
     ],
   },
@@ -162,23 +149,23 @@ const BODY_PARTS = [
     theme: 'warning',
     emoji: '💪',
     exercises: [
-      { name: 'Standing Dumbbell Curl', pattern: 'curl', cue: 'Elbows pinned, curl without swinging',
+      { name: 'Standing Dumbbell Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/74/Bicep-curls-1.png', cue: 'Elbows pinned, curl without swinging',
         steps: ['Stand tall, elbows pinned to sides', 'Curl up without swinging', 'Squeeze at top, lower slow'] },
-      { name: 'Hammer Curl', pattern: 'curl', cue: 'Neutral grip, curl straight up',
+      { name: 'Hammer Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/86/Bicep-hammer-curl-1.png', cue: 'Neutral grip, curl straight up',
         steps: ['Neutral grip, arms at sides', 'Curl straight up', 'Squeeze, lower under control'] },
-      { name: 'Cross-Body Hammer Curl', pattern: 'curl', cue: 'Curl dumbbell across to opposite shoulder',
+      { name: 'Cross-Body Hammer Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/86/Bicep-hammer-curl-1.png', cue: 'Curl dumbbell across to opposite shoulder',
         steps: ['Neutral grip at side', 'Curl dumbbell across to the opposite shoulder', 'Lower back to side slowly'] },
-      { name: 'Concentration Curl', pattern: 'curl', cue: 'Elbow braced on thigh, slow squeeze',
+      { name: 'Concentration Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/1109/00b0a0bf-c14a-4f13-bb14-62c09030a1aa.png', cue: 'Elbow braced on thigh, slow squeeze',
         steps: ['Seated, elbow braced on inner thigh', 'Curl dumbbell up slowly', 'Squeeze at top, full stretch down'] },
-      { name: 'Preacher Curl Machine', pattern: 'curl', cue: 'Full stretch at bottom, squeeze at top',
+      { name: 'Preacher Curl Machine', pattern: 'curl', img: 'https://wger.de/media/exercise-images/193/Preacher-curl-3-1.png', cue: 'Full stretch at bottom, squeeze at top',
         steps: ['Arms on pad, full stretch', 'Curl up, squeeze biceps', 'Lower slow to full stretch'] },
-      { name: 'Barbell Curl', pattern: 'curl', cue: 'Shoulder-width grip, no hip swing',
+      { name: 'Barbell Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/74/Bicep-curls-1.png', cue: 'Shoulder-width grip, no hip swing',
         steps: ['Shoulder-width grip, arms extended', 'Curl bar up, no hip swing', 'Squeeze top, lower controlled'] },
-      { name: 'Close-Grip EZ-Bar Curl', pattern: 'curl', cue: 'Narrow grip targets outer biceps',
+      { name: 'Close-Grip EZ-Bar Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/94/6dee2f60-aea2-4f2d-9bf6-aef50c4f9483.png', cue: 'Narrow grip targets outer biceps',
         steps: ['Narrow grip on EZ-bar', 'Curl up, elbows tucked in', 'Squeeze, lower slow'] },
-      { name: 'Standing Cable Curl', pattern: 'curl', cue: 'Constant tension, squeeze at peak',
+      { name: 'Standing Cable Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/912/e10a034f-6370-4dd6-b1c2-416b27844529.png', cue: 'Constant tension, squeeze at peak',
         steps: ['Cable at low pulley, arms extended', 'Curl up keeping constant tension', 'Squeeze at top, control down'] },
-      { name: 'Cable Rope Hammer Curl', pattern: 'curl', cue: 'Neutral grip, curl rope ends up',
+      { name: 'Cable Rope Hammer Curl', pattern: 'curl', img: 'https://wger.de/media/exercise-images/86/Bicep-hammer-curl-1.png', cue: 'Neutral grip, curl rope ends up',
         steps: ['Rope attachment, neutral grip', 'Curl rope ends up', 'Squeeze, lower with control'] },
     ],
   },
@@ -187,19 +174,19 @@ const BODY_PARTS = [
     theme: 'warning',
     emoji: '💪',
     exercises: [
-      { name: 'Overhead Dumbbell Extension', pattern: 'triceps-overhead', cue: 'Elbows close to head, stretch behind',
+      { name: 'Overhead Dumbbell Extension', pattern: 'triceps-overhead', img: 'https://wger.de/media/exercise-images/1519/fab7f641-27d4-40b5-8edd-1a0a137bfd94.gif', cue: 'Elbows close to head, stretch behind',
         steps: ['Dumbbell overhead, elbows close to head', 'Lower behind head', 'Extend back to the top'] },
-      { name: 'Dumbbell Kickback', pattern: 'kickback', cue: 'Upper arm parallel to floor, extend back',
+      { name: 'Dumbbell Kickback', pattern: 'kickback', img: 'https://wger.de/media/exercise-images/1519/fab7f641-27d4-40b5-8edd-1a0a137bfd94.gif', cue: 'Upper arm parallel to floor, extend back',
         steps: ['Hinge forward, upper arm parallel to floor', 'Extend forearm back', 'Squeeze triceps, return slow'] },
-      { name: 'Rope Pushdown', pattern: 'pushdown', cue: 'Spread rope ends apart at bottom',
+      { name: 'Rope Pushdown', pattern: 'pushdown', img: 'https://wger.de/media/exercise-images/1900/a8243245-8f8f-4e2b-93ca-694d416cb11d.png', cue: 'Spread rope ends apart at bottom',
         steps: ['Rope at chest height, elbows at sides', 'Push down, spreading rope ends apart', 'Squeeze at bottom, control up'] },
-      { name: 'Straight-Bar Pushdown', pattern: 'pushdown', cue: 'Elbows locked at sides, push down',
+      { name: 'Straight-Bar Pushdown', pattern: 'pushdown', img: 'https://wger.de/media/exercise-images/1185/c5ca283d-8958-4fd8-9d59-a3f52a3ac66b.jpg', cue: 'Elbows locked at sides, push down',
         steps: ['Elbows locked at sides, bar at chest', 'Push bar down', 'Squeeze, control back up'] },
-      { name: 'Overhead Rope Extension', pattern: 'triceps-overhead', cue: 'Full stretch overhead, extend forward',
+      { name: 'Overhead Rope Extension', pattern: 'triceps-overhead', img: 'https://wger.de/media/exercise-images/1519/fab7f641-27d4-40b5-8edd-1a0a137bfd94.gif', cue: 'Full stretch overhead, extend forward',
         steps: ['Rope overhead, elbows by ears', 'Extend forward and down', 'Full stretch overhead, repeat'] },
-      { name: 'Bench Dips', pattern: 'dip', cue: 'Lower until elbows ~90°, press up',
+      { name: 'Bench Dips', pattern: 'dip', img: 'https://wger.de/media/exercise-images/83/Bench-dips-1.png', cue: 'Lower until elbows ~90°, press up',
         steps: ['Hands on bench, legs extended', 'Lower until elbows reach ~90°', 'Press up to lockout'] },
-      { name: 'Single-Arm Overhead Dumbbell Extension', pattern: 'triceps-overhead', cue: 'Support elbow, extend one arm overhead',
+      { name: 'Single-Arm Overhead Dumbbell Extension', pattern: 'triceps-overhead', img: 'https://wger.de/media/exercise-images/1519/fab7f641-27d4-40b5-8edd-1a0a137bfd94.gif', cue: 'Support elbow, extend one arm overhead',
         steps: ['One arm overhead, elbow supported', 'Lower behind head', 'Extend back to the top'] },
     ],
   },
@@ -208,15 +195,15 @@ const BODY_PARTS = [
     theme: 'primary',
     emoji: '🦵',
     exercises: [
-      { name: 'Iso-Lateral Leg Press', pattern: 'leg-press', cue: 'Push through heels, full range',
+      { name: 'Iso-Lateral Leg Press', pattern: 'leg-press', img: 'https://wger.de/media/exercise-images/371/d2136f96-3a43-4d4c-9944-1919c4ca1ce1.webp', cue: 'Push through heels, full range',
         steps: ['Feet shoulder-width on platform', 'Push through your heels', 'Extend without locking knees'] },
-      { name: 'Leg Press', pattern: 'leg-press', cue: "Knees track toes, don't lock out",
+      { name: 'Leg Press', pattern: 'leg-press', img: 'https://wger.de/media/exercise-images/371/d2136f96-3a43-4d4c-9944-1919c4ca1ce1.webp', cue: "Knees track toes, don't lock out",
         steps: ['Feet on platform, knees bent', 'Push platform away, knees tracking toes', 'Stop short of lockout'] },
-      { name: 'Leg Extension', pattern: 'leg-extension', cue: 'Controlled up, pause, lower slow',
+      { name: 'Leg Extension', pattern: 'leg-extension', img: 'https://wger.de/media/exercise-images/369/78c915d1-e46d-4d30-8124-65d68664c3ef.png', cue: 'Controlled up, pause, lower slow',
         steps: ['Seated, pad on shins, knees bent', 'Extend legs up', 'Pause, lower slow'] },
-      { name: 'Walking Lunges', pattern: 'lunge', cue: 'Step long, knee over ankle',
+      { name: 'Walking Lunges', pattern: 'lunge', img: 'https://wger.de/media/exercise-images/113/Walking-lunges-1.png', cue: 'Step long, knee over ankle',
         steps: ['Stand tall, step forward', 'Lower until both knees reach ~90°', 'Push through front heel, step into the next lunge'] },
-      { name: 'Lying Leg Curl', pattern: 'leg-curl', cue: 'Curl heels to glutes, squeeze',
+      { name: 'Lying Leg Curl', pattern: 'leg-curl', img: 'https://wger.de/media/exercise-images/154/lying-leg-curl-machine-large-1.png', cue: 'Curl heels to glutes, squeeze',
         steps: ['Lie face down, pad on ankles', 'Curl heels to glutes', 'Squeeze, lower slow'] },
     ],
   },
@@ -225,15 +212,15 @@ const BODY_PARTS = [
     theme: 'neutral',
     emoji: '🔥',
     exercises: [
-      { name: 'Hanging Leg Raise', pattern: 'leg-raise', cue: 'Raise legs to hip height, no swing',
+      { name: 'Hanging Leg Raise', pattern: 'leg-raise', img: 'https://wger.de/media/exercise-images/91/Crunches-1.png', cue: 'Raise legs to hip height, no swing',
         steps: ['Hang from bar, legs straight', 'Raise legs to hip height', 'Lower slow, no swing'] },
-      { name: 'Cable Crunch', pattern: 'crunch', cue: 'Round spine, crunch down to knees',
+      { name: 'Cable Crunch', pattern: 'crunch', img: 'https://wger.de/media/exercise-images/91/Crunches-1.png', cue: 'Round spine, crunch down to knees',
         steps: ['Kneel, rope behind head', 'Round spine, crunch down', 'Crunch to knees, return slow'] },
-      { name: 'Plank', pattern: 'hold', cue: 'Straight line head to heels',
+      { name: 'Plank', pattern: 'hold', img: 'https://wger.de/media/exercise-images/458/b7bd9c28-9f1d-4647-bd17-ab6a3adf5770.png', cue: 'Straight line head to heels',
         steps: ['Forearms and toes on the floor', 'Keep a straight line head to heels', 'Brace core, hold the position'] },
-      { name: 'Russian Twist', pattern: 'twist', cue: 'Rotate from torso, feet off floor',
+      { name: 'Russian Twist', pattern: 'twist', img: 'https://wger.de/media/exercise-images/1193/70ca5d80-3847-4a8c-8882-c6e9e485e29e.png', cue: 'Rotate from torso, feet off floor',
         steps: ['Seated, lean back slightly, feet off floor', 'Rotate torso side to side', 'Control each rotation'] },
-      { name: 'Ab Wheel Rollout', pattern: 'rollout', cue: "Core tight, roll out slow, don't sag",
+      { name: 'Ab Wheel Rollout', pattern: 'rollout', img: 'https://wger.de/media/exercise-images/41/34b37423-269f-43d4-9d29-d2a90eeaa6b4.png', cue: "Core tight, roll out slow, don't sag",
         steps: ['Kneel, wheel under shoulders', 'Roll out slow, core tight', "Roll back without letting hips sag"] },
     ],
   },
@@ -425,8 +412,14 @@ function ExerciseCard({ exercise, theme, logged, onLog }) {
       onClick={() => onLog(exercise.name)}
       className={`group flex flex-col overflow-hidden rounded-xl border bg-[var(--surface)] text-left transition-all duration-200 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 ${logged ? t.border : 'border-[var(--border)]'}`}
     >
-      <div className="relative h-28 overflow-hidden bg-[var(--surface-hover)] p-3 transition-transform duration-300 group-hover:scale-105">
-        <MotionIcon pattern={exercise.pattern} color={THEME_COLOR_VAR[theme] || THEME_COLOR_VAR.primary} />
+      <div className="relative h-28 overflow-hidden bg-[var(--surface-hover)]">
+        <img
+          src={exercise.img}
+          alt={exercise.name}
+          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+        <MotionArrowOverlay pattern={exercise.pattern} color={THEME_COLOR_VAR[theme] || THEME_COLOR_VAR.primary} />
         {logged && (
           <span className={`absolute top-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-white ring-2 ring-[var(--surface)] ${t.dot}`}>
             <Check size={12} />
