@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Dumbbell, ChevronDown, ChevronUp, Plus, TrendingUp, History, Check, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabase';
 import {
@@ -16,23 +16,108 @@ const THEME_CLASSES = {
   neutral: { text: 'text-secondary', bg: 'bg-secondary/10', border: 'border-secondary/30', dot: 'bg-secondary' },
 };
 
+const THEME_COLOR_VAR = {
+  danger: 'var(--color-danger)',
+  success: 'var(--color-accent)',
+  info: 'var(--color-info)',
+  warning: 'var(--color-warning)',
+  primary: 'var(--color-primary)',
+  neutral: 'var(--color-secondary)',
+};
+
+// Schematic start->end position diagrams: an outline circle marks the start
+// position, a filled circle marks the finish, and the connecting arrow shows
+// the direction of movement for that exercise. `curve` bows the path
+// perpendicular to the line (positive/negative = opposite directions).
+const MOTION_PATHS = {
+  press:              { from: [30, 75], to: [30, 25] },
+  'press-incline':    { from: [35, 78], to: [60, 22] },
+  fly:                { from: [15, 42], to: [50, 58] },
+  'pull-down':        { from: [50, 15], to: [50, 58] },
+  'pull-up':          { from: [50, 78], to: [50, 25] },
+  row:                { from: [72, 50], to: [28, 50] },
+  'rear-fly':         { from: [50, 42], to: [18, 48] },
+  hinge:              { from: [50, 78], to: [50, 40], curve: 18 },
+  'press-overhead':   { from: [50, 78], to: [50, 20] },
+  'raise-front':      { from: [50, 82], to: [50, 38] },
+  'raise-lateral':    { from: [32, 62], to: [72, 35] },
+  curl:               { from: [30, 78], to: [50, 28], curve: -22 },
+  'triceps-overhead': { from: [50, 68], to: [50, 20], curve: 14 },
+  kickback:           { from: [38, 50], to: [78, 50], curve: -12 },
+  pushdown:           { from: [50, 22], to: [50, 72] },
+  dip:                { from: [50, 72], to: [50, 28] },
+  'leg-press':        { from: [28, 60], to: [72, 60] },
+  'leg-extension':    { from: [50, 78], to: [50, 28] },
+  lunge:              { from: [32, 82], to: [68, 38] },
+  'leg-curl':         { from: [50, 25], to: [50, 72], curve: -16 },
+  'leg-raise':        { from: [50, 82], to: [50, 32] },
+  crunch:             { from: [28, 25], to: [62, 65] },
+  twist:              { from: [28, 50], to: [72, 50], curve: 24 },
+  rollout:            { from: [28, 62], to: [76, 54] },
+  hold:               { static: true },
+};
+
+function MotionIcon({ pattern, color = 'var(--color-primary)' }) {
+  const uid = useId();
+  const cfg = MOTION_PATHS[pattern] || MOTION_PATHS.press;
+  const markerId = `motion-arrow-${uid}`;
+
+  if (cfg.static) {
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <line x1="10" y1="88" x2="90" y2="88" stroke="var(--border)" strokeWidth="2" />
+        <circle cx="50" cy="52" r="11" fill="none" stroke={color} strokeWidth="2" strokeDasharray="4 3" />
+        <circle cx="50" cy="52" r="4" fill={color} />
+      </svg>
+    );
+  }
+
+  const [x1, y1] = cfg.from;
+  const [x2, y2] = cfg.to;
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const curve = cfg.curve || 0;
+  const cx = mx + nx * curve;
+  const cy = my + ny * curve;
+  const path = curve === 0 ? `M ${x1} ${y1} L ${x2} ${y2}` : `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      <defs>
+        <marker id={markerId} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill={color} />
+        </marker>
+      </defs>
+      <line x1="10" y1="88" x2="90" y2="88" stroke="var(--border)" strokeWidth="2" />
+      <circle cx={x1} cy={y1} r="6" fill="var(--surface)" stroke={color} strokeWidth="2" strokeDasharray="3 2" opacity="0.65" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" markerEnd={`url(#${markerId})`} />
+      <circle cx={x2} cy={y2} r="6" fill={color} />
+    </svg>
+  );
+}
+
 const BODY_PARTS = [
   {
     name: 'Chest',
     theme: 'danger',
     emoji: '🫁',
     exercises: [
-      { name: 'Decline Barbell Press', cue: 'Lower bar to lower chest, elbows ~45°',
+      { name: 'Decline Barbell Press', pattern: 'press', cue: 'Lower bar to lower chest, elbows ~45°',
         steps: ['Lie on decline bench, grip bar shoulder-width', 'Lower bar to lower chest', 'Press up until arms extended'] },
-      { name: 'Smith Machine Bench Press', cue: 'Flat back, bar to mid-chest, drive up',
+      { name: 'Smith Machine Bench Press', pattern: 'press', cue: 'Flat back, bar to mid-chest, drive up',
         steps: ['Lie flat, bar above chest', 'Lower bar to mid-chest', 'Drive up to lockout'] },
-      { name: 'Incline Smith Machine Press', cue: '30° bench, press up and slightly back',
+      { name: 'Incline Smith Machine Press', pattern: 'press-incline', cue: '30° bench, press up and slightly back',
         steps: ['Set 30° incline, bar at upper chest', 'Lower under control', 'Press up and slightly back'] },
-      { name: 'Incline Dumbbell Fly', cue: 'Slight elbow bend, arc dumbbells to chest',
+      { name: 'Incline Dumbbell Fly', pattern: 'fly', cue: 'Slight elbow bend, arc dumbbells to chest',
         steps: ['Lie on incline bench, dumbbells above chest', 'Arc arms out with a slight elbow bend', 'Bring dumbbells back together above chest'] },
-      { name: 'Incline Barbell Press', cue: 'Bar path to upper chest, feet planted',
+      { name: 'Incline Barbell Press', pattern: 'press-incline', cue: 'Bar path to upper chest, feet planted',
         steps: ['Incline bench, bar at upper chest', 'Lower bar to upper chest', 'Press up, feet planted'] },
-      { name: 'Decline Chest Press Machine', cue: 'Seat low, press down and forward',
+      { name: 'Decline Chest Press Machine', pattern: 'press', cue: 'Seat low, press down and forward',
         steps: ['Seat low, handles at chest', 'Press down and forward', 'Extend arms fully, avoid hard lockout'] },
     ],
   },
@@ -41,19 +126,19 @@ const BODY_PARTS = [
     theme: 'success',
     emoji: '🔙',
     exercises: [
-      { name: 'Wide-Grip Lat Pulldown', cue: 'Pull to upper chest, squeeze lats',
+      { name: 'Wide-Grip Lat Pulldown', pattern: 'pull-down', cue: 'Pull to upper chest, squeeze lats',
         steps: ['Wide grip, arms extended overhead', 'Pull bar to upper chest', 'Squeeze lats, control back up'] },
-      { name: 'Pull-Ups', cue: 'Full hang to chin over bar',
+      { name: 'Pull-Ups', pattern: 'pull-up', cue: 'Full hang to chin over bar',
         steps: ['Full hang, arms extended', 'Pull chin over the bar', 'Lower under control to full hang'] },
-      { name: 'Close-Grip Cable Row', cue: 'Pull to lower ribs, chest up',
+      { name: 'Close-Grip Cable Row', pattern: 'row', cue: 'Pull to lower ribs, chest up',
         steps: ['Seated, arms extended, chest up', 'Pull handle to lower ribs', 'Squeeze shoulder blades, extend back out'] },
-      { name: 'Reverse Pec Deck', cue: 'Squeeze shoulder blades together',
+      { name: 'Reverse Pec Deck', pattern: 'rear-fly', cue: 'Squeeze shoulder blades together',
         steps: ['Chest against pad, arms forward', 'Pull arms back, squeeze shoulder blades', 'Return slow to the start'] },
-      { name: 'Back Extensions', cue: "Hinge at hips, don't hyperextend spine",
+      { name: 'Back Extensions', pattern: 'hinge', cue: "Hinge at hips, don't hyperextend spine",
         steps: ['Hips on pad, body straight', 'Lower torso forward at the hips', 'Raise to a straight line, no hyperextension'] },
-      { name: 'High Row Machine', cue: 'Pull elbows back and down',
+      { name: 'High Row Machine', pattern: 'row', cue: 'Pull elbows back and down',
         steps: ['Grip handles, arms extended', 'Pull elbows back and down', 'Squeeze, then control the return'] },
-      { name: 'Iso-Lateral Row', cue: 'Drive elbows back, one arm at a time',
+      { name: 'Iso-Lateral Row', pattern: 'row', cue: 'Drive elbows back, one arm at a time',
         steps: ['One handle, arm extended', 'Drive elbow straight back', 'Squeeze, return slow, switch arms'] },
     ],
   },
@@ -62,13 +147,13 @@ const BODY_PARTS = [
     theme: 'info',
     emoji: '💪',
     exercises: [
-      { name: 'Dumbbell Shoulder Press', cue: 'Press up without arching lower back',
+      { name: 'Dumbbell Shoulder Press', pattern: 'press-overhead', cue: 'Press up without arching lower back',
         steps: ['Dumbbells at shoulder height', 'Press up without arching your back', 'Lower under control to shoulders'] },
-      { name: 'Barbell Overhead Press', cue: 'Brace core, bar path close to face',
+      { name: 'Barbell Overhead Press', pattern: 'press-overhead', cue: 'Brace core, bar path close to face',
         steps: ['Bar at collarbone, shoulder-width grip', 'Press bar up, close to the face', 'Lock out overhead, lower slow'] },
-      { name: 'Dumbbell Front Raise', cue: 'Raise to shoulder height, controlled',
+      { name: 'Dumbbell Front Raise', pattern: 'raise-front', cue: 'Raise to shoulder height, controlled',
         steps: ['Dumbbells in front of thighs', 'Raise to shoulder height', 'Lower with control'] },
-      { name: 'Dumbbell Lateral Raise', cue: 'Lead with elbows, raise to shoulder line',
+      { name: 'Dumbbell Lateral Raise', pattern: 'raise-lateral', cue: 'Lead with elbows, raise to shoulder line',
         steps: ['Dumbbells at sides, slight elbow bend', 'Lead with elbows up to shoulder line', 'Lower slowly, no swing'] },
     ],
   },
@@ -77,23 +162,23 @@ const BODY_PARTS = [
     theme: 'warning',
     emoji: '💪',
     exercises: [
-      { name: 'Standing Dumbbell Curl', cue: 'Elbows pinned, curl without swinging',
+      { name: 'Standing Dumbbell Curl', pattern: 'curl', cue: 'Elbows pinned, curl without swinging',
         steps: ['Stand tall, elbows pinned to sides', 'Curl up without swinging', 'Squeeze at top, lower slow'] },
-      { name: 'Hammer Curl', cue: 'Neutral grip, curl straight up',
+      { name: 'Hammer Curl', pattern: 'curl', cue: 'Neutral grip, curl straight up',
         steps: ['Neutral grip, arms at sides', 'Curl straight up', 'Squeeze, lower under control'] },
-      { name: 'Cross-Body Hammer Curl', cue: 'Curl dumbbell across to opposite shoulder',
+      { name: 'Cross-Body Hammer Curl', pattern: 'curl', cue: 'Curl dumbbell across to opposite shoulder',
         steps: ['Neutral grip at side', 'Curl dumbbell across to the opposite shoulder', 'Lower back to side slowly'] },
-      { name: 'Concentration Curl', cue: 'Elbow braced on thigh, slow squeeze',
+      { name: 'Concentration Curl', pattern: 'curl', cue: 'Elbow braced on thigh, slow squeeze',
         steps: ['Seated, elbow braced on inner thigh', 'Curl dumbbell up slowly', 'Squeeze at top, full stretch down'] },
-      { name: 'Preacher Curl Machine', cue: 'Full stretch at bottom, squeeze at top',
+      { name: 'Preacher Curl Machine', pattern: 'curl', cue: 'Full stretch at bottom, squeeze at top',
         steps: ['Arms on pad, full stretch', 'Curl up, squeeze biceps', 'Lower slow to full stretch'] },
-      { name: 'Barbell Curl', cue: 'Shoulder-width grip, no hip swing',
+      { name: 'Barbell Curl', pattern: 'curl', cue: 'Shoulder-width grip, no hip swing',
         steps: ['Shoulder-width grip, arms extended', 'Curl bar up, no hip swing', 'Squeeze top, lower controlled'] },
-      { name: 'Close-Grip EZ-Bar Curl', cue: 'Narrow grip targets outer biceps',
+      { name: 'Close-Grip EZ-Bar Curl', pattern: 'curl', cue: 'Narrow grip targets outer biceps',
         steps: ['Narrow grip on EZ-bar', 'Curl up, elbows tucked in', 'Squeeze, lower slow'] },
-      { name: 'Standing Cable Curl', cue: 'Constant tension, squeeze at peak',
+      { name: 'Standing Cable Curl', pattern: 'curl', cue: 'Constant tension, squeeze at peak',
         steps: ['Cable at low pulley, arms extended', 'Curl up keeping constant tension', 'Squeeze at top, control down'] },
-      { name: 'Cable Rope Hammer Curl', cue: 'Neutral grip, curl rope ends up',
+      { name: 'Cable Rope Hammer Curl', pattern: 'curl', cue: 'Neutral grip, curl rope ends up',
         steps: ['Rope attachment, neutral grip', 'Curl rope ends up', 'Squeeze, lower with control'] },
     ],
   },
@@ -102,19 +187,19 @@ const BODY_PARTS = [
     theme: 'warning',
     emoji: '💪',
     exercises: [
-      { name: 'Overhead Dumbbell Extension', cue: 'Elbows close to head, stretch behind',
+      { name: 'Overhead Dumbbell Extension', pattern: 'triceps-overhead', cue: 'Elbows close to head, stretch behind',
         steps: ['Dumbbell overhead, elbows close to head', 'Lower behind head', 'Extend back to the top'] },
-      { name: 'Dumbbell Kickback', cue: 'Upper arm parallel to floor, extend back',
+      { name: 'Dumbbell Kickback', pattern: 'kickback', cue: 'Upper arm parallel to floor, extend back',
         steps: ['Hinge forward, upper arm parallel to floor', 'Extend forearm back', 'Squeeze triceps, return slow'] },
-      { name: 'Rope Pushdown', cue: 'Spread rope ends apart at bottom',
+      { name: 'Rope Pushdown', pattern: 'pushdown', cue: 'Spread rope ends apart at bottom',
         steps: ['Rope at chest height, elbows at sides', 'Push down, spreading rope ends apart', 'Squeeze at bottom, control up'] },
-      { name: 'Straight-Bar Pushdown', cue: 'Elbows locked at sides, push down',
+      { name: 'Straight-Bar Pushdown', pattern: 'pushdown', cue: 'Elbows locked at sides, push down',
         steps: ['Elbows locked at sides, bar at chest', 'Push bar down', 'Squeeze, control back up'] },
-      { name: 'Overhead Rope Extension', cue: 'Full stretch overhead, extend forward',
+      { name: 'Overhead Rope Extension', pattern: 'triceps-overhead', cue: 'Full stretch overhead, extend forward',
         steps: ['Rope overhead, elbows by ears', 'Extend forward and down', 'Full stretch overhead, repeat'] },
-      { name: 'Bench Dips', cue: 'Lower until elbows ~90°, press up',
+      { name: 'Bench Dips', pattern: 'dip', cue: 'Lower until elbows ~90°, press up',
         steps: ['Hands on bench, legs extended', 'Lower until elbows reach ~90°', 'Press up to lockout'] },
-      { name: 'Single-Arm Overhead Dumbbell Extension', cue: 'Support elbow, extend one arm overhead',
+      { name: 'Single-Arm Overhead Dumbbell Extension', pattern: 'triceps-overhead', cue: 'Support elbow, extend one arm overhead',
         steps: ['One arm overhead, elbow supported', 'Lower behind head', 'Extend back to the top'] },
     ],
   },
@@ -123,15 +208,15 @@ const BODY_PARTS = [
     theme: 'primary',
     emoji: '🦵',
     exercises: [
-      { name: 'Iso-Lateral Leg Press', cue: 'Push through heels, full range',
+      { name: 'Iso-Lateral Leg Press', pattern: 'leg-press', cue: 'Push through heels, full range',
         steps: ['Feet shoulder-width on platform', 'Push through your heels', 'Extend without locking knees'] },
-      { name: 'Leg Press', cue: "Knees track toes, don't lock out",
+      { name: 'Leg Press', pattern: 'leg-press', cue: "Knees track toes, don't lock out",
         steps: ['Feet on platform, knees bent', 'Push platform away, knees tracking toes', 'Stop short of lockout'] },
-      { name: 'Leg Extension', cue: 'Controlled up, pause, lower slow',
+      { name: 'Leg Extension', pattern: 'leg-extension', cue: 'Controlled up, pause, lower slow',
         steps: ['Seated, pad on shins, knees bent', 'Extend legs up', 'Pause, lower slow'] },
-      { name: 'Walking Lunges', cue: 'Step long, knee over ankle',
+      { name: 'Walking Lunges', pattern: 'lunge', cue: 'Step long, knee over ankle',
         steps: ['Stand tall, step forward', 'Lower until both knees reach ~90°', 'Push through front heel, step into the next lunge'] },
-      { name: 'Lying Leg Curl', cue: 'Curl heels to glutes, squeeze',
+      { name: 'Lying Leg Curl', pattern: 'leg-curl', cue: 'Curl heels to glutes, squeeze',
         steps: ['Lie face down, pad on ankles', 'Curl heels to glutes', 'Squeeze, lower slow'] },
     ],
   },
@@ -140,42 +225,30 @@ const BODY_PARTS = [
     theme: 'neutral',
     emoji: '🔥',
     exercises: [
-      { name: 'Hanging Leg Raise', cue: 'Raise legs to hip height, no swing',
+      { name: 'Hanging Leg Raise', pattern: 'leg-raise', cue: 'Raise legs to hip height, no swing',
         steps: ['Hang from bar, legs straight', 'Raise legs to hip height', 'Lower slow, no swing'] },
-      { name: 'Cable Crunch', cue: 'Round spine, crunch down to knees',
+      { name: 'Cable Crunch', pattern: 'crunch', cue: 'Round spine, crunch down to knees',
         steps: ['Kneel, rope behind head', 'Round spine, crunch down', 'Crunch to knees, return slow'] },
-      { name: 'Plank', cue: 'Straight line head to heels',
+      { name: 'Plank', pattern: 'hold', cue: 'Straight line head to heels',
         steps: ['Forearms and toes on the floor', 'Keep a straight line head to heels', 'Brace core, hold the position'] },
-      { name: 'Russian Twist', cue: 'Rotate from torso, feet off floor',
+      { name: 'Russian Twist', pattern: 'twist', cue: 'Rotate from torso, feet off floor',
         steps: ['Seated, lean back slightly, feet off floor', 'Rotate torso side to side', 'Control each rotation'] },
-      { name: 'Ab Wheel Rollout', cue: "Core tight, roll out slow, don't sag",
+      { name: 'Ab Wheel Rollout', pattern: 'rollout', cue: "Core tight, roll out slow, don't sag",
         steps: ['Kneel, wheel under shoulders', 'Roll out slow, core tight', "Roll back without letting hips sag"] },
     ],
   },
 ];
 
-// One representative photo per body part — kept to a small, known-reliable
-// set of Unsplash IDs rather than guessing a distinct URL per exercise.
-const BODY_PART_IMAGES = {
-  Chest:     'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300&h=200&fit=crop',
-  Back:      'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=300&h=200&fit=crop',
-  Shoulders: 'https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=300&h=200&fit=crop',
-  Biceps:    'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=300&h=200&fit=crop',
-  Triceps:   'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  Legs:      'https://images.unsplash.com/photo-1566241142559-40e1dab266c6?w=300&h=200&fit=crop',
-  Abs:       'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=200&fit=crop',
-};
-
 const TODAY = new Date().toISOString().split('T')[0];
 
 const WEEKLY_SPLIT = [
-  { day: 'Sun', label: 'Sunday', focus: 'Rest' },
-  { day: 'Mon', label: 'Monday', focus: 'Chest + Triceps' },
-  { day: 'Tue', label: 'Tuesday', focus: 'Back + Biceps' },
-  { day: 'Wed', label: 'Wednesday', focus: 'Legs + Abs' },
-  { day: 'Thu', label: 'Thursday', focus: 'Chest + Shoulders' },
-  { day: 'Fri', label: 'Friday', focus: 'Back + Biceps' },
-  { day: 'Sat', label: 'Saturday', focus: 'Legs + Abs' },
+  { day: 'Sun', label: 'Sunday', focus: 'Legs + Abs' },
+  { day: 'Mon', label: 'Monday', focus: 'Rest' },
+  { day: 'Tue', label: 'Tuesday', focus: 'Chest + Triceps' },
+  { day: 'Wed', label: 'Wednesday', focus: 'Back + Biceps' },
+  { day: 'Thu', label: 'Thursday', focus: 'Legs + Abs' },
+  { day: 'Fri', label: 'Friday', focus: 'Chest + Shoulders' },
+  { day: 'Sat', label: 'Saturday', focus: 'Back + Biceps' },
 ];
 
 const getPartTheme = (exerciseName) =>
@@ -344,7 +417,7 @@ function LogModal({ open, exercise, theme, steps, onClose, onSaved }) {
   );
 }
 
-function ExerciseCard({ exercise, theme, img, logged, onLog }) {
+function ExerciseCard({ exercise, theme, logged, onLog }) {
   const t = THEME_CLASSES[theme] || THEME_CLASSES.primary;
   return (
     <button
@@ -352,14 +425,8 @@ function ExerciseCard({ exercise, theme, img, logged, onLog }) {
       onClick={() => onLog(exercise.name)}
       className={`group flex flex-col overflow-hidden rounded-xl border bg-[var(--surface)] text-left transition-all duration-200 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 ${logged ? t.border : 'border-[var(--border)]'}`}
     >
-      <div className="relative h-28 overflow-hidden bg-[var(--surface-hover)]">
-        <img
-          src={img}
-          alt={exercise.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent" />
+      <div className="relative h-28 overflow-hidden bg-[var(--surface-hover)] p-3 transition-transform duration-300 group-hover:scale-105">
+        <MotionIcon pattern={exercise.pattern} color={THEME_COLOR_VAR[theme] || THEME_COLOR_VAR.primary} />
         {logged && (
           <span className={`absolute top-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-white ring-2 ring-[var(--surface)] ${t.dot}`}>
             <Check size={12} />
@@ -441,7 +508,6 @@ function BodyPartSection({ part, logs, onLog }) {
                 key={ex.name}
                 exercise={ex}
                 theme={part.theme}
-                img={BODY_PART_IMAGES[part.name]}
                 logged={loggedNames.has(ex.name)}
                 onLog={onLog}
               />
