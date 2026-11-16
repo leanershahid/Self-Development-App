@@ -153,16 +153,6 @@ function getTargets(bw) {
   return { kcal, p, c, f };
 }
 
-const WORKOUT_SPLIT = [
-  { day: 'Mon', focus: 'Push', detail: 'Bench press, incline DB press, shoulder press, lateral raise, triceps dips' },
-  { day: 'Tue', focus: 'Pull', detail: 'Pull-ups/lat pulldown, barbell row, face pull, biceps curl, hammer curl' },
-  { day: 'Wed', focus: 'Legs + Abs', detail: 'Squat, Romanian deadlift, lunges, calf raise, plank, hanging leg raise' },
-  { day: 'Thu', focus: 'Rest', detail: 'Walk 8–10k steps, stretching, eye care' },
-  { day: 'Fri', focus: 'Push', detail: 'Overhead press, incline bench, cable fly, skull crushers, ab wheel' },
-  { day: 'Sat', focus: 'Pull + Legs', detail: 'Deadlift, seated row, leg press, curls, cable crunch' },
-  { day: 'Sun', focus: 'Rest', detail: 'Full rest or 30 min light cardio' },
-];
-
 const RULES = [
   { icon: TrendingUp, label: 'Protein Target', value: 'About 105–140 g/day, spread across meals' },
   { icon: TrendingUp, label: 'Calories',       value: 'Start ~2,100–2,200 kcal/day, then adjust from progress' },
@@ -1083,23 +1073,6 @@ export default function WorkoutDiet() {
           ) : (
             <TimelineView meals={meals} />
           )}
-
-          {/* Weekly workout split */}
-          <Card>
-            <CardHeader icon={<Dumbbell size={18} />} title="Weekly Workout Split" />
-            <CardBody className="flex flex-col gap-2">
-              {WORKOUT_SPLIT.map((d) => (
-                <div key={d.day} className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                  <span className="text-xs font-bold text-primary w-8 shrink-0 mt-0.5">{d.day}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text)]">{d.focus}</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{d.detail}</p>
-                  </div>
-                </div>
-              ))}
-              <p className="text-xs text-[var(--text-muted)] mt-2">3–4 sets × 8–12 reps. Add weight or a rep every week.</p>
-            </CardBody>
-          </Card>
 
           {/* Weight Tracker */}
           <WeightTracker bodyWeight={bodyWeight} />
