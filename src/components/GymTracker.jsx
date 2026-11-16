@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dumbbell, ChevronDown, ChevronUp, Plus, TrendingUp, History, Check } from 'lucide-react';
+import { Dumbbell, ChevronDown, ChevronUp, Plus, TrendingUp, History, Check, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabase';
 import {
   Button, Input, Card, CardHeader, CardBody, Badge, KpiCard, Table, Modal,
@@ -22,10 +22,18 @@ const BODY_PARTS = [
     theme: 'danger',
     emoji: '🫁',
     exercises: [
-      { name: 'Bench Press', img: 'https://wger.de/static/images/exercises/small/bench-press.png', wgerId: 192 },
-      { name: 'Incline Dumbbell Press', img: 'https://wger.de/static/images/exercises/small/incline-dumbbell-press.png', wgerId: 314 },
-      { name: 'Cable Fly', img: 'https://wger.de/static/images/exercises/small/cable-crossover.png', wgerId: 313 },
-      { name: 'Push-Up', img: 'https://wger.de/static/images/exercises/small/push-up.png', wgerId: 10 },
+      { name: 'Decline Barbell Press', cue: 'Lower bar to lower chest, elbows ~45°',
+        steps: ['Lie on decline bench, grip bar shoulder-width', 'Lower bar to lower chest', 'Press up until arms extended'] },
+      { name: 'Smith Machine Bench Press', cue: 'Flat back, bar to mid-chest, drive up',
+        steps: ['Lie flat, bar above chest', 'Lower bar to mid-chest', 'Drive up to lockout'] },
+      { name: 'Incline Smith Machine Press', cue: '30° bench, press up and slightly back',
+        steps: ['Set 30° incline, bar at upper chest', 'Lower under control', 'Press up and slightly back'] },
+      { name: 'Incline Dumbbell Fly', cue: 'Slight elbow bend, arc dumbbells to chest',
+        steps: ['Lie on incline bench, dumbbells above chest', 'Arc arms out with a slight elbow bend', 'Bring dumbbells back together above chest'] },
+      { name: 'Incline Barbell Press', cue: 'Bar path to upper chest, feet planted',
+        steps: ['Incline bench, bar at upper chest', 'Lower bar to upper chest', 'Press up, feet planted'] },
+      { name: 'Decline Chest Press Machine', cue: 'Seat low, press down and forward',
+        steps: ['Seat low, handles at chest', 'Press down and forward', 'Extend arms fully, avoid hard lockout'] },
     ],
   },
   {
@@ -33,10 +41,20 @@ const BODY_PARTS = [
     theme: 'success',
     emoji: '🔙',
     exercises: [
-      { name: 'Pull-Up', img: 'https://wger.de/static/images/exercises/small/pull-up.png', wgerId: 31 },
-      { name: 'Barbell Row', img: 'https://wger.de/static/images/exercises/small/barbell-row.png', wgerId: 63 },
-      { name: 'Lat Pulldown', img: 'https://wger.de/static/images/exercises/small/lat-pulldown.png', wgerId: 159 },
-      { name: 'Seated Cable Row', img: 'https://wger.de/static/images/exercises/small/seated-cable-row.png', wgerId: 118 },
+      { name: 'Wide-Grip Lat Pulldown', cue: 'Pull to upper chest, squeeze lats',
+        steps: ['Wide grip, arms extended overhead', 'Pull bar to upper chest', 'Squeeze lats, control back up'] },
+      { name: 'Pull-Ups', cue: 'Full hang to chin over bar',
+        steps: ['Full hang, arms extended', 'Pull chin over the bar', 'Lower under control to full hang'] },
+      { name: 'Close-Grip Cable Row', cue: 'Pull to lower ribs, chest up',
+        steps: ['Seated, arms extended, chest up', 'Pull handle to lower ribs', 'Squeeze shoulder blades, extend back out'] },
+      { name: 'Reverse Pec Deck', cue: 'Squeeze shoulder blades together',
+        steps: ['Chest against pad, arms forward', 'Pull arms back, squeeze shoulder blades', 'Return slow to the start'] },
+      { name: 'Back Extensions', cue: "Hinge at hips, don't hyperextend spine",
+        steps: ['Hips on pad, body straight', 'Lower torso forward at the hips', 'Raise to a straight line, no hyperextension'] },
+      { name: 'High Row Machine', cue: 'Pull elbows back and down',
+        steps: ['Grip handles, arms extended', 'Pull elbows back and down', 'Squeeze, then control the return'] },
+      { name: 'Iso-Lateral Row', cue: 'Drive elbows back, one arm at a time',
+        steps: ['One handle, arm extended', 'Drive elbow straight back', 'Squeeze, return slow, switch arms'] },
     ],
   },
   {
@@ -44,21 +62,60 @@ const BODY_PARTS = [
     theme: 'info',
     emoji: '💪',
     exercises: [
-      { name: 'Overhead Press', img: 'https://wger.de/static/images/exercises/small/overhead-press.png', wgerId: 73 },
-      { name: 'Lateral Raise', img: 'https://wger.de/static/images/exercises/small/lateral-raise.png', wgerId: 79 },
-      { name: 'Front Raise', img: 'https://wger.de/static/images/exercises/small/front-raise.png', wgerId: 78 },
-      { name: 'Face Pull', img: 'https://wger.de/static/images/exercises/small/face-pull.png', wgerId: 345 },
+      { name: 'Dumbbell Shoulder Press', cue: 'Press up without arching lower back',
+        steps: ['Dumbbells at shoulder height', 'Press up without arching your back', 'Lower under control to shoulders'] },
+      { name: 'Barbell Overhead Press', cue: 'Brace core, bar path close to face',
+        steps: ['Bar at collarbone, shoulder-width grip', 'Press bar up, close to the face', 'Lock out overhead, lower slow'] },
+      { name: 'Dumbbell Front Raise', cue: 'Raise to shoulder height, controlled',
+        steps: ['Dumbbells in front of thighs', 'Raise to shoulder height', 'Lower with control'] },
+      { name: 'Dumbbell Lateral Raise', cue: 'Lead with elbows, raise to shoulder line',
+        steps: ['Dumbbells at sides, slight elbow bend', 'Lead with elbows up to shoulder line', 'Lower slowly, no swing'] },
     ],
   },
   {
-    name: 'Arms',
+    name: 'Biceps',
     theme: 'warning',
     emoji: '💪',
     exercises: [
-      { name: 'Barbell Curl', img: 'https://wger.de/static/images/exercises/small/barbell-curl.png', wgerId: 84 },
-      { name: 'Hammer Curl', img: 'https://wger.de/static/images/exercises/small/hammer-curl.png', wgerId: 85 },
-      { name: 'Tricep Pushdown', img: 'https://wger.de/static/images/exercises/small/tricep-pushdown.png', wgerId: 91 },
-      { name: 'Skull Crusher', img: 'https://wger.de/static/images/exercises/small/skull-crusher.png', wgerId: 93 },
+      { name: 'Standing Dumbbell Curl', cue: 'Elbows pinned, curl without swinging',
+        steps: ['Stand tall, elbows pinned to sides', 'Curl up without swinging', 'Squeeze at top, lower slow'] },
+      { name: 'Hammer Curl', cue: 'Neutral grip, curl straight up',
+        steps: ['Neutral grip, arms at sides', 'Curl straight up', 'Squeeze, lower under control'] },
+      { name: 'Cross-Body Hammer Curl', cue: 'Curl dumbbell across to opposite shoulder',
+        steps: ['Neutral grip at side', 'Curl dumbbell across to the opposite shoulder', 'Lower back to side slowly'] },
+      { name: 'Concentration Curl', cue: 'Elbow braced on thigh, slow squeeze',
+        steps: ['Seated, elbow braced on inner thigh', 'Curl dumbbell up slowly', 'Squeeze at top, full stretch down'] },
+      { name: 'Preacher Curl Machine', cue: 'Full stretch at bottom, squeeze at top',
+        steps: ['Arms on pad, full stretch', 'Curl up, squeeze biceps', 'Lower slow to full stretch'] },
+      { name: 'Barbell Curl', cue: 'Shoulder-width grip, no hip swing',
+        steps: ['Shoulder-width grip, arms extended', 'Curl bar up, no hip swing', 'Squeeze top, lower controlled'] },
+      { name: 'Close-Grip EZ-Bar Curl', cue: 'Narrow grip targets outer biceps',
+        steps: ['Narrow grip on EZ-bar', 'Curl up, elbows tucked in', 'Squeeze, lower slow'] },
+      { name: 'Standing Cable Curl', cue: 'Constant tension, squeeze at peak',
+        steps: ['Cable at low pulley, arms extended', 'Curl up keeping constant tension', 'Squeeze at top, control down'] },
+      { name: 'Cable Rope Hammer Curl', cue: 'Neutral grip, curl rope ends up',
+        steps: ['Rope attachment, neutral grip', 'Curl rope ends up', 'Squeeze, lower with control'] },
+    ],
+  },
+  {
+    name: 'Triceps',
+    theme: 'warning',
+    emoji: '💪',
+    exercises: [
+      { name: 'Overhead Dumbbell Extension', cue: 'Elbows close to head, stretch behind',
+        steps: ['Dumbbell overhead, elbows close to head', 'Lower behind head', 'Extend back to the top'] },
+      { name: 'Dumbbell Kickback', cue: 'Upper arm parallel to floor, extend back',
+        steps: ['Hinge forward, upper arm parallel to floor', 'Extend forearm back', 'Squeeze triceps, return slow'] },
+      { name: 'Rope Pushdown', cue: 'Spread rope ends apart at bottom',
+        steps: ['Rope at chest height, elbows at sides', 'Push down, spreading rope ends apart', 'Squeeze at bottom, control up'] },
+      { name: 'Straight-Bar Pushdown', cue: 'Elbows locked at sides, push down',
+        steps: ['Elbows locked at sides, bar at chest', 'Push bar down', 'Squeeze, control back up'] },
+      { name: 'Overhead Rope Extension', cue: 'Full stretch overhead, extend forward',
+        steps: ['Rope overhead, elbows by ears', 'Extend forward and down', 'Full stretch overhead, repeat'] },
+      { name: 'Bench Dips', cue: 'Lower until elbows ~90°, press up',
+        steps: ['Hands on bench, legs extended', 'Lower until elbows reach ~90°', 'Press up to lockout'] },
+      { name: 'Single-Arm Overhead Dumbbell Extension', cue: 'Support elbow, extend one arm overhead',
+        steps: ['One arm overhead, elbow supported', 'Lower behind head', 'Extend back to the top'] },
     ],
   },
   {
@@ -66,54 +123,60 @@ const BODY_PARTS = [
     theme: 'primary',
     emoji: '🦵',
     exercises: [
-      { name: 'Squat', img: 'https://wger.de/static/images/exercises/small/squat.png', wgerId: 111 },
-      { name: 'Romanian Deadlift', img: 'https://wger.de/static/images/exercises/small/romanian-deadlift.png', wgerId: 113 },
-      { name: 'Leg Press', img: 'https://wger.de/static/images/exercises/small/leg-press.png', wgerId: 116 },
-      { name: 'Calf Raise', img: 'https://wger.de/static/images/exercises/small/calf-raise.png', wgerId: 126 },
+      { name: 'Iso-Lateral Leg Press', cue: 'Push through heels, full range',
+        steps: ['Feet shoulder-width on platform', 'Push through your heels', 'Extend without locking knees'] },
+      { name: 'Leg Press', cue: "Knees track toes, don't lock out",
+        steps: ['Feet on platform, knees bent', 'Push platform away, knees tracking toes', 'Stop short of lockout'] },
+      { name: 'Leg Extension', cue: 'Controlled up, pause, lower slow',
+        steps: ['Seated, pad on shins, knees bent', 'Extend legs up', 'Pause, lower slow'] },
+      { name: 'Walking Lunges', cue: 'Step long, knee over ankle',
+        steps: ['Stand tall, step forward', 'Lower until both knees reach ~90°', 'Push through front heel, step into the next lunge'] },
+      { name: 'Lying Leg Curl', cue: 'Curl heels to glutes, squeeze',
+        steps: ['Lie face down, pad on ankles', 'Curl heels to glutes', 'Squeeze, lower slow'] },
     ],
   },
   {
-    name: 'Core',
+    name: 'Abs',
     theme: 'neutral',
     emoji: '🔥',
     exercises: [
-      { name: 'Plank', img: 'https://wger.de/static/images/exercises/small/plank.png', wgerId: 10 },
-      { name: 'Crunches', img: 'https://wger.de/static/images/exercises/small/crunch.png', wgerId: 11 },
-      { name: 'Leg Raise', img: 'https://wger.de/static/images/exercises/small/leg-raise.png', wgerId: 12 },
-      { name: 'Russian Twist', img: 'https://wger.de/static/images/exercises/small/russian-twist.png', wgerId: 13 },
+      { name: 'Hanging Leg Raise', cue: 'Raise legs to hip height, no swing',
+        steps: ['Hang from bar, legs straight', 'Raise legs to hip height', 'Lower slow, no swing'] },
+      { name: 'Cable Crunch', cue: 'Round spine, crunch down to knees',
+        steps: ['Kneel, rope behind head', 'Round spine, crunch down', 'Crunch to knees, return slow'] },
+      { name: 'Plank', cue: 'Straight line head to heels',
+        steps: ['Forearms and toes on the floor', 'Keep a straight line head to heels', 'Brace core, hold the position'] },
+      { name: 'Russian Twist', cue: 'Rotate from torso, feet off floor',
+        steps: ['Seated, lean back slightly, feet off floor', 'Rotate torso side to side', 'Control each rotation'] },
+      { name: 'Ab Wheel Rollout', cue: "Core tight, roll out slow, don't sag",
+        steps: ['Kneel, wheel under shoulders', 'Roll out slow, core tight', "Roll back without letting hips sag"] },
     ],
   },
 ];
 
-// Real exercise images from Unsplash (reliable, always loads)
-const EXERCISE_IMAGES = {
-  'Bench Press':             'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300&h=200&fit=crop',
-  'Incline Dumbbell Press':  'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=300&h=200&fit=crop',
-  'Cable Fly':               'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Push-Up':                 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=300&h=200&fit=crop',
-  'Pull-Up':                 'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=300&h=200&fit=crop',
-  'Barbell Row':             'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=300&h=200&fit=crop',
-  'Lat Pulldown':            'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Seated Cable Row':        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Overhead Press':          'https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=300&h=200&fit=crop',
-  'Lateral Raise':           'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=300&h=200&fit=crop',
-  'Front Raise':             'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=300&h=200&fit=crop',
-  'Face Pull':               'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Barbell Curl':            'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=300&h=200&fit=crop',
-  'Hammer Curl':             'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=300&h=200&fit=crop',
-  'Tricep Pushdown':         'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Skull Crusher':           'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300&h=200&fit=crop',
-  'Squat':                   'https://images.unsplash.com/photo-1566241142559-40e1dab266c6?w=300&h=200&fit=crop',
-  'Romanian Deadlift':       'https://images.unsplash.com/photo-1566241142559-40e1dab266c6?w=300&h=200&fit=crop',
-  'Leg Press':               'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Calf Raise':              'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
-  'Plank':                   'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=200&fit=crop',
-  'Crunches':                'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=200&fit=crop',
-  'Leg Raise':               'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=200&fit=crop',
-  'Russian Twist':           'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=200&fit=crop',
+// One representative photo per body part — kept to a small, known-reliable
+// set of Unsplash IDs rather than guessing a distinct URL per exercise.
+const BODY_PART_IMAGES = {
+  Chest:     'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300&h=200&fit=crop',
+  Back:      'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=300&h=200&fit=crop',
+  Shoulders: 'https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=300&h=200&fit=crop',
+  Biceps:    'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=300&h=200&fit=crop',
+  Triceps:   'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=200&fit=crop',
+  Legs:      'https://images.unsplash.com/photo-1566241142559-40e1dab266c6?w=300&h=200&fit=crop',
+  Abs:       'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=200&fit=crop',
 };
 
 const TODAY = new Date().toISOString().split('T')[0];
+
+const WEEKLY_SPLIT = [
+  { day: 'Sun', label: 'Sunday', focus: 'Rest' },
+  { day: 'Mon', label: 'Monday', focus: 'Chest + Triceps' },
+  { day: 'Tue', label: 'Tuesday', focus: 'Back + Biceps' },
+  { day: 'Wed', label: 'Wednesday', focus: 'Legs + Abs' },
+  { day: 'Thu', label: 'Thursday', focus: 'Chest + Shoulders' },
+  { day: 'Fri', label: 'Friday', focus: 'Back + Biceps' },
+  { day: 'Sat', label: 'Saturday', focus: 'Legs + Abs' },
+];
 
 const getPartTheme = (exerciseName) =>
   BODY_PARTS.find((p) => p.exercises.some((e) => e.name === exerciseName))?.theme || 'primary';
@@ -145,7 +208,7 @@ const historyColumns = [
   },
 ];
 
-function LogModal({ open, exercise, theme, onClose, onSaved }) {
+function LogModal({ open, exercise, theme, steps, onClose, onSaved }) {
   const toast = useToast();
   const t = THEME_CLASSES[theme] || THEME_CLASSES.primary;
   const [weight, setWeight] = useState('');
@@ -207,6 +270,29 @@ function LogModal({ open, exercise, theme, onClose, onSaved }) {
         </Button>
       }
     >
+      {steps?.length > 0 && (
+        <div className={`rounded-lg px-3 py-3 mb-4 border ${t.bg} ${t.border}`}>
+          <p className={`text-xs font-semibold uppercase tracking-wide mb-2.5 ${t.text}`}>Correct Position</p>
+          <div className="flex flex-col">
+            {steps.map((step, i) => (
+              <React.Fragment key={i}>
+                <div className="flex items-start gap-2">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white shrink-0 ${t.dot}`}>
+                    {i + 1}
+                  </span>
+                  <span className="text-sm text-[var(--text)] leading-snug">{step}</span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="pl-[5px] py-0.5">
+                    <ArrowRight size={14} className={`${t.text} rotate-90`} />
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
       {historyLoading ? (
         <SkeletonText lines={2} className="mb-4" />
       ) : (
@@ -258,35 +344,72 @@ function LogModal({ open, exercise, theme, onClose, onSaved }) {
   );
 }
 
-function ExerciseCard({ exercise, theme, logged, onLog }) {
+function ExerciseCard({ exercise, theme, img, logged, onLog }) {
   const t = THEME_CLASSES[theme] || THEME_CLASSES.primary;
-  const img = EXERCISE_IMAGES[exercise.name];
   return (
     <button
       type="button"
       onClick={() => onLog(exercise.name)}
-      className={`group flex flex-col overflow-hidden rounded-xl border bg-[var(--surface)] text-left transition hover:shadow-[var(--shadow-sm)] ${logged ? t.border : 'border-[var(--border)]'}`}
+      className={`group flex flex-col overflow-hidden rounded-xl border bg-[var(--surface)] text-left transition-all duration-200 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 ${logged ? t.border : 'border-[var(--border)]'}`}
     >
-      <div className="relative h-24 overflow-hidden bg-[var(--surface-hover)]">
+      <div className="relative h-28 overflow-hidden bg-[var(--surface-hover)]">
         <img
           src={img}
           alt={exercise.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent" />
         {logged && (
-          <span className={`absolute top-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-white ${t.dot}`}>
+          <span className={`absolute top-2 right-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-white ring-2 ring-[var(--surface)] ${t.dot}`}>
             <Check size={12} />
           </span>
         )}
       </div>
-      <div className="p-3 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-[var(--text)] truncate">{exercise.name}</span>
-        <span className={`inline-flex items-center gap-1 text-xs font-medium shrink-0 ${t.text}`}>
-          <Plus size={12} /> Log
+      <div className="p-3 flex flex-col gap-1.5">
+        <span className="text-sm font-semibold text-[var(--text)] leading-snug">{exercise.name}</span>
+        {exercise.cue && (
+          <span className="flex items-start gap-1.5 text-xs text-[var(--text-muted)] leading-snug">
+            <ArrowRight size={12} className={`${t.text} shrink-0 mt-0.5`} />
+            {exercise.cue}
+          </span>
+        )}
+        <span className={`inline-flex items-center gap-1 text-xs font-medium ${t.text} mt-1`}>
+          <Plus size={12} /> Log set
         </span>
       </div>
     </button>
+  );
+}
+
+function WeeklySplitCard() {
+  const todayIdx = new Date().getDay();
+  return (
+    <Card>
+      <CardHeader icon={<Dumbbell size={18} />} title="Weekly Workout Split" />
+      <CardBody className="flex flex-col gap-2">
+        {WEEKLY_SPLIT.map((d, i) => {
+          const isToday = i === todayIdx;
+          const isRest = d.focus === 'Rest';
+          return (
+            <div
+              key={d.day}
+              className={`flex items-center gap-3 p-3 rounded-lg border ${
+                isToday ? 'bg-primary/10 border-primary/30' : 'bg-[var(--bg)] border-[var(--border)]'
+              }`}
+            >
+              <span className={`text-xs font-bold w-9 shrink-0 ${isToday ? 'text-primary' : 'text-[var(--text-muted)]'}`}>
+                {d.day}
+              </span>
+              <p className={`text-sm flex-1 ${isRest ? 'text-[var(--text-muted)] italic' : 'text-[var(--text)] font-medium'}`}>
+                {d.focus}
+              </p>
+              {isToday && <Badge variant="primary">Today</Badge>}
+            </div>
+          );
+        })}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -312,9 +435,16 @@ function BodyPartSection({ part, logs, onLog }) {
 
       {open && (
         <CardBody className="pt-0 border-t border-[var(--border)]">
-          <div className="grid grid-cols-2 gap-3 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
             {part.exercises.map((ex) => (
-              <ExerciseCard key={ex.name} exercise={ex} theme={part.theme} logged={loggedNames.has(ex.name)} onLog={onLog} />
+              <ExerciseCard
+                key={ex.name}
+                exercise={ex}
+                theme={part.theme}
+                img={BODY_PART_IMAGES[part.name]}
+                logged={loggedNames.has(ex.name)}
+                onLog={onLog}
+              />
             ))}
           </div>
         </CardBody>
@@ -359,7 +489,8 @@ export default function GymTracker() {
 
   const openModal = (exerciseName) => {
     const part = BODY_PARTS.find((p) => p.exercises.some((e) => e.name === exerciseName));
-    setModal({ exercise: exerciseName, theme: part?.theme || 'primary' });
+    const ex = part?.exercises.find((e) => e.name === exerciseName);
+    setModal({ exercise: exerciseName, theme: part?.theme || 'primary', steps: ex?.steps });
   };
 
   const totalToday = todayLogs.length;
@@ -403,6 +534,8 @@ export default function GymTracker() {
             )
           )}
 
+          <WeeklySplitCard />
+
           <div className="flex flex-col gap-3">
             {BODY_PARTS.map((part) => (
               <BodyPartSection key={part.name} part={part} logs={todayLogs} onLog={openModal} />
@@ -434,6 +567,7 @@ export default function GymTracker() {
         open={!!modal}
         exercise={modal?.exercise}
         theme={modal?.theme}
+        steps={modal?.steps}
         onClose={() => setModal(null)}
         onSaved={() => loadTodayLogs()}
       />
