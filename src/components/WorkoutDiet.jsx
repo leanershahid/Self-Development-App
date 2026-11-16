@@ -68,7 +68,6 @@ const MEALS_ALL = [
     ],
     tip: 'Take creatine consistently every day — timing is flexible, 3–5 g is the common daily dose.',
     workoutOnly: true,
-    image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&q=80',
   },
   {
     time: 'Post-Workout',
@@ -82,7 +81,6 @@ const MEALS_ALL = [
     ],
     tip: 'Measure the peanut butter — tablespoons vary, weigh it once to know your real serving.',
     workoutOnly: false,
-    image: 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=80',
   },
   {
     time: 'Breakfast',
@@ -97,7 +95,6 @@ const MEALS_ALL = [
     ],
     tip: 'Pick one carb option each morning; don\'t stack the multivitamin with other high-dose supplements.',
     workoutOnly: false,
-    image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&q=80',
   },
   {
     time: 'Lunch',
@@ -113,7 +110,6 @@ const MEALS_ALL = [
     ],
     tip: 'Weigh chicken and soya consistently (raw/dry vs cooked) — this plan assumes raw/dry weights.',
     workoutOnly: false,
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
   },
   {
     time: 'Dinner',
@@ -131,7 +127,6 @@ const MEALS_ALL = [
     ],
     tip: 'A 1,000 mg fish-oil capsule isn\'t 1,000 mg EPA+DHA — check the label. Ask a clinician first if on blood thinners.',
     workoutOnly: false,
-    image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&q=80',
   },
 ];
 
@@ -248,7 +243,7 @@ function MacroSplitBar({ macros }) {
 // ── Meal Card ──────────────────────────────────────────────────────────────
 function MealCard({ meal, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { time, subtitle, items, tip, image, macros, icon: Icon, color } = meal;
+  const { time, subtitle, items, tip, macros, icon: Icon, color } = meal;
 
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: color }}>
@@ -270,12 +265,7 @@ function MealCard({ meal, defaultOpen }) {
       </button>
 
       {open && (
-        <CardBody className="pt-0 border-t border-[var(--border)]">
-          <div className="relative rounded-lg overflow-hidden mb-4 h-40 bg-[var(--bg)]">
-            <img src={image} alt={time} className="w-full h-full object-cover" loading="lazy" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-            <p className="absolute bottom-2 left-3 text-sm font-semibold text-white drop-shadow">{time}</p>
-          </div>
+        <CardBody className="border-t border-[var(--border)]">
           <MacroChips macros={macros} />
           <div className="space-y-2 mb-4">
             {items.map((item) => (
