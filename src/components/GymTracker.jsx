@@ -112,6 +112,7 @@ const BODY_PARTS = [
         steps: ['Lie on incline bench, dumbbells above chest', 'Arc arms out with a slight elbow bend', 'Bring dumbbells back together above chest'] },
       { name: 'Incline Barbell Press', pattern: 'press-incline',
         imgStart: 'https://wger.de/media/exercise-images/41/Incline-bench-press-1.png', imgEnd: 'https://wger.de/media/exercise-images/41/Incline-bench-press-2.png',
+        video: 'https://wger.de/media/exercise-video/538/4349a6f6-4cee-4c09-828b-c5e7fc2c1ff1.MOV',
         cue: 'Bar path to upper chest, feet planted',
         steps: ['Incline bench, bar at upper chest', 'Lower bar to upper chest', 'Press up, feet planted'] },
       { name: 'Decline Chest Press Machine', pattern: 'press',
@@ -492,6 +493,7 @@ function LogModal({ open, exercise, theme, steps, onClose, onSaved }) {
 
 function ExerciseCard({ exercise, theme, logged, onLog }) {
   const t = THEME_CLASSES[theme] || THEME_CLASSES.primary;
+  const [videoFailed, setVideoFailed] = useState(false);
   return (
     <button
       type="button"
@@ -499,7 +501,17 @@ function ExerciseCard({ exercise, theme, logged, onLog }) {
       className={`group flex flex-col overflow-hidden rounded-xl border bg-[var(--surface)] text-left transition-all duration-200 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 ${logged ? t.border : 'border-[var(--border)]'}`}
     >
       <div className="relative h-28 overflow-hidden bg-[var(--surface-hover)] flex">
-        {exercise.imgEnd ? (
+        {exercise.video && !videoFailed ? (
+          <video
+            src={exercise.video}
+            className="w-full h-full object-contain"
+            muted
+            loop
+            autoPlay
+            playsInline
+            onError={() => setVideoFailed(true)}
+          />
+        ) : exercise.imgEnd ? (
           <>
             <div className="flex-1 h-full overflow-hidden">
               <img
