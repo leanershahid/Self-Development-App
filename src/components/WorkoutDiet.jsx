@@ -510,15 +510,18 @@ function FoodLogger({ targets }) {
               onClick={() => handleQuickAdd(quickAddMeal)}
               disabled={saving}
               icon={<Plus size={14} />}
-              className="self-start"
+              className="self-start max-w-full"
             >
-              Log full {quickAddMeal.time} plan · {quickAddMeal.macros.kcal} kcal · {quickAddMeal.macros.p}g P
+              <span className="truncate">
+                <span className="hidden sm:inline">Log full {quickAddMeal.time} plan · {quickAddMeal.macros.kcal} kcal · {quickAddMeal.macros.p}g P</span>
+                <span className="sm:hidden">Log {quickAddMeal.time} · {quickAddMeal.macros.kcal} kcal</span>
+              </span>
             </Button>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
-              className="flex-1"
+              className="flex-1 min-w-0"
               leadingIcon={<Utensils size={14} />}
               placeholder="Food name (e.g. 2 boiled eggs)"
               value={foodName}
@@ -530,6 +533,7 @@ function FoodLogger({ targets }) {
               disabled={estimating || !foodName.trim()}
               loading={estimating}
               icon={<Sparkles size={14} />}
+              className="w-full sm:w-auto shrink-0"
             >
               Estimate
             </Button>
@@ -542,7 +546,7 @@ function FoodLogger({ targets }) {
             <Input label="Carbs g" type="number" placeholder="0" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
             <Input label="Fat g" type="number" placeholder="0" value={fat} onChange={(e) => setFat(e.target.value)} />
           </div>
-          <Button onClick={handleManualAdd} disabled={saving || !foodName.trim()} loading={saving} icon={<Plus size={14} />} className="self-start">
+          <Button onClick={handleManualAdd} disabled={saving || !foodName.trim()} loading={saving} icon={<Plus size={14} />} className="w-full sm:w-auto sm:self-start">
             Add to log
           </Button>
         </div>
@@ -961,18 +965,18 @@ export default function WorkoutDiet() {
               <p className="text-sm text-[var(--text-muted)] mt-0.5">22 yrs · 65 kg · 173 cm · India/Kerala-style</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-3 py-2.5 text-center backdrop-blur-sm">
-              <p className="text-lg font-bold text-[var(--text)] tabular-nums">2,100–2,200</p>
-              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">kcal / day</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-2 py-2 sm:px-3 sm:py-2.5 text-center backdrop-blur-sm min-w-0">
+              <p className="text-sm sm:text-lg font-bold text-[var(--text)] tabular-nums leading-tight break-words">2,100–2,200</p>
+              <p className="text-[9px] sm:text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">kcal / day</p>
             </div>
-            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-3 py-2.5 text-center backdrop-blur-sm">
-              <p className="text-lg font-bold text-accent tabular-nums">105–140</p>
-              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">protein g / day</p>
+            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-2 py-2 sm:px-3 sm:py-2.5 text-center backdrop-blur-sm min-w-0">
+              <p className="text-sm sm:text-lg font-bold text-accent tabular-nums leading-tight break-words">105–140</p>
+              <p className="text-[9px] sm:text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">protein g / day</p>
             </div>
-            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-3 py-2.5 text-center backdrop-blur-sm">
-              <p className="text-sm sm:text-base font-bold text-[var(--text)] truncate">{currentMeal || '—'}</p>
-              <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">now</p>
+            <div className="rounded-xl bg-[var(--surface)]/60 border border-[var(--border)] px-2 py-2 sm:px-3 sm:py-2.5 text-center backdrop-blur-sm min-w-0">
+              <p className="text-sm sm:text-base font-bold text-[var(--text)] truncate leading-tight">{currentMeal || '—'}</p>
+              <p className="text-[9px] sm:text-[10px] uppercase tracking-wide text-[var(--text-muted)] mt-0.5">now</p>
             </div>
           </div>
         </div>
