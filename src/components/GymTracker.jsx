@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dumbbell, ChevronDown, ChevronUp, Plus, TrendingUp, History, Check, ArrowRight } from 'lucide-react';
+import { Dumbbell, ChevronDown, ChevronUp, Plus, TrendingUp, History, Check, ArrowRight, Award } from 'lucide-react';
 import { supabase } from '../supabase';
 import {
   Button, Input, Card, CardHeader, CardBody, Badge, KpiCard, Table, Modal,
@@ -355,7 +355,7 @@ const historyColumns = [
   },
 ];
 
-function LogModal({ open, exercise, theme, steps, onClose, onSaved }) {
+function LogModal({ open, exercise, theme, steps, pr, onClose, onSaved }) {
   const toast = useToast();
   const t = THEME_CLASSES[theme] || THEME_CLASSES.primary;
   const [weight, setWeight] = useState('');
@@ -440,6 +440,19 @@ function LogModal({ open, exercise, theme, steps, onClose, onSaved }) {
         </div>
       )}
 
+      {pr && (
+        <div className={`flex items-center gap-3 rounded-lg px-3 py-2.5 mb-3 border ${t.bg} ${t.border}`}>
+          <Award size={14} className={`${t.text} shrink-0`} />
+          <div>
+            <p className="text-xs text-[var(--text-muted)]">Personal best (max weight)</p>
+            <p className={`text-sm font-semibold ${t.text}`}>
+              {pr.weight} kg × {pr.reps} reps
+              <span className="text-[var(--text-muted)] font-normal text-xs ml-2">{pr.date}</span>
+            </p>
+          </div>
+        </div>
+      )}
+
       {historyLoading ? (
         <SkeletonText lines={2} className="mb-4" />
       ) : (
@@ -491,7 +504,7 @@ function LogModal({ open, exercise, theme, steps, onClose, onSaved }) {
   );
 }
 
-function ExerciseCard({ exercise, theme, logged, onLog }) {
+function ExerciseCard({ exercise, theme, logged, pr, onLog }) {
   const t = THEME_CLASSES[theme] || THEME_CLASSES.primary;
   const [videoFailed, setVideoFailed] = useState(false);
   return (
@@ -558,6 +571,11 @@ function ExerciseCard({ exercise, theme, logged, onLog }) {
             {exercise.cue}
           </span>
         )}
+        {pr && (
+          <span className={`flex items-center gap-1.5 text-xs font-medium ${t.text}`}>
+            <Award size={12} className="shrink-0" /> PR {pr.weight} kg × {pr.reps}
+          </span>
+        )}
         <span className={`inline-flex items-center gap-1 text-xs font-medium ${t.text} mt-1`}>
           <Plus size={12} /> Log set
         </span>
@@ -597,7 +615,7 @@ function WeeklySplitCard() {
   );
 }
 
-function BodyPartSection({ part, logs, onLog }) {
+function BodyPartSection({ part, logs, prMap, onLog }) {
   const [open, setOpen] = useState(false);
   const t = THEME_CLASSES[part.theme] || THEME_CLASSES.primary;
   const loggedNames = new Set(logs.map((l) => l.exercise));
@@ -626,6 +644,7 @@ function BodyPartSection({ part, logs, onLog }) {
                 exercise={ex}
                 theme={part.theme}
                 logged={loggedNames.has(ex.name)}
+                pr={prMap[ex.name]}
                 onLog={onLog}
               />
             ))}
@@ -644,6 +663,7 @@ export default function GymTracker() {
   const [activeTab, setActiveTab] = useState('workout'); // 'workout' | 'history'
   const [allLogs, setAllLogs]     = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [prMap, setPrMap] = useState({});
 
   const loadTodayLogs = async () => {
     setLoading(true);
@@ -654,7 +674,21 @@ export default function GymTracker() {
     setLoading(false);
   };
 
-  useEffect(() => { loadTodayLogs(); }, []);
+  const loadPRs = async () => {
+    const { data, error } = await supabase.from('gym_logs')
+      .select('exercise, weight, reps, date');
+    if (error) return;
+    const best = {};
+    for (const l of data || []) {
+      const current = best[l.exercise];
+      if (!current || l.weight > current.weight || (l.weight === current.weight && l.reps > current.reps)) {
+        best[l.exercise] = { weight: l.weight, reps: l.reps, date: l.date };
+      }
+    }
+    setPrMap(best);
+  };
+
+  useEffect(() => { loadTodayLogs(); loadPRs(); }, []);
 
   const loadAllLogs = async () => {
     setHistoryLoading(true);
@@ -673,7 +707,7 @@ export default function GymTracker() {
   const openModal = (exerciseName) => {
     const part = BODY_PARTS.find((p) => p.exercises.some((e) => e.name === exerciseName));
     const ex = part?.exercises.find((e) => e.name === exerciseName);
-    setModal({ exercise: exerciseName, theme: part?.theme || 'primary', steps: ex?.steps });
+    setModal({ exercise: exerciseName, theme: part?.theme || 'primary', steps: ex?.steps, pr: prMap[exerciseName] });
   };
 
   const totalToday = todayLogs.length;
@@ -721,7 +755,7 @@ export default function GymTracker() {
 
           <div className="flex flex-col gap-3">
             {BODY_PARTS.map((part) => (
-              <BodyPartSection key={part.name} part={part} logs={todayLogs} onLog={openModal} />
+              <BodyPartSection key={part.name} part={part} logs={todayLogs} prMap={prMap} onLog={openModal} />
             ))}
           </div>
         </div>
@@ -751,8 +785,9 @@ export default function GymTracker() {
         exercise={modal?.exercise}
         theme={modal?.theme}
         steps={modal?.steps}
+        pr={modal?.pr}
         onClose={() => setModal(null)}
-        onSaved={() => loadTodayLogs()}
+        onSaved={() => { loadTodayLogs(); loadPRs(); }}
       />
     </div>
   );
