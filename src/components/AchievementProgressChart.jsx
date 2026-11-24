@@ -42,8 +42,8 @@ export default function AchievementProgressChart() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-[var(--text)] tabular-nums">{stats.avgPercent}%</span>
-                  <span className="text-xs text-[var(--text-muted)]">avg progress</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-[var(--text)] tabular-nums">{stats.avgPercent}%</span>
+                  <span className="hidden sm:inline text-xs text-[var(--text-muted)]">avg progress</span>
                 </div>
                 <div className="h-1.5 mt-2 rounded-full bg-[var(--surface-hover)] overflow-hidden">
                   <div
@@ -53,7 +53,7 @@ export default function AchievementProgressChart() {
                 </div>
               </div>
               <Badge variant={stats.completed === stats.total ? 'success' : 'primary'}>
-                {stats.completed}/{stats.total} completed
+                {stats.completed}/{stats.total}<span className="hidden sm:inline">&nbsp;completed</span>
               </Badge>
             </div>
 

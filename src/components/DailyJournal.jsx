@@ -100,7 +100,7 @@ export default function DailyJournal() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard icon={<BookOpen size={18} />} label="Entries" value={entries.length} />
         <KpiCard icon={<FileText size={18} />} label="Total Words" value={totalWords.toLocaleString()} />
         <KpiCard

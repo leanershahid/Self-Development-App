@@ -96,7 +96,7 @@ export default function ComfortZone() {
             </AnimatePresence>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <KpiCard icon={<TrendingUp size={18} />} label="Total Pushes" value={entries.length} tone="primary" />
                 <KpiCard icon={<Star size={18} />} label="Courage Points" value={totalPoints} tone="accent" />
                 <KpiCard icon={<Zap size={18} />} label="Avg Difficulty" value={avgDiff} tone="warning" />

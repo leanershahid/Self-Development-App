@@ -279,7 +279,7 @@ export default function AICoach() {
 
                     {/* CTA */}
                     <div className="flex flex-col items-center gap-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap justify-center">
                             <Button
                                 variant="primary"
                                 size="lg"
@@ -380,11 +380,11 @@ export default function AICoach() {
                                     <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
                                         <Card>
                                             <div className="flex items-center">
-                                                <button onClick={() => toggle(key)} className="flex-1 flex items-center gap-3 px-5 py-4 text-left">
+                                                <button onClick={() => toggle(key)} className="flex-1 min-w-0 flex items-center gap-3 px-5 py-4 text-left">
                                                     <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${ICON_TOKENS[badge]}`}>
                                                         <section.Icon size={15} />
                                                     </span>
-                                                    <span className="font-semibold text-sm text-[var(--text)]">{label}</span>
+                                                    <span className="font-semibold text-sm text-[var(--text)] truncate">{label}</span>
                                                 </button>
                                                 <div className="flex items-center gap-1.5 pr-4">
                                                     <IconButton label="Copy section" size="sm" onClick={() => copySection(key, content)}>
@@ -488,16 +488,16 @@ export default function AICoach() {
                     </div>
 
                     {/* Input */}
-                    <form onSubmit={sendMessage} className="p-4 border-t border-[var(--border)] flex gap-3 items-start">
-                        <div className="flex-1">
+                    <form onSubmit={sendMessage} className="p-4 border-t border-[var(--border)] flex gap-2 sm:gap-3 items-start">
+                        <div className="flex-1 min-w-0">
                             <Input
                                 value={chatInput}
                                 onChange={e => setChatInput(e.target.value)}
                                 placeholder="Ask your coach anything..."
                             />
                         </div>
-                        <Button type="submit" disabled={chatLoading || !chatInput.trim()} icon={<Send size={15} />} aria-label="Send message">
-                            Send
+                        <Button type="submit" disabled={chatLoading || !chatInput.trim()} icon={<Send size={15} />} aria-label="Send message" className="shrink-0">
+                            <span className="hidden sm:inline">Send</span>
                         </Button>
                     </form>
                 </Card>

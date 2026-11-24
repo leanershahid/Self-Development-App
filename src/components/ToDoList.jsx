@@ -445,20 +445,20 @@ export default function TodoList() {
         <CardBody className="flex flex-col gap-5">
           {/* Add todo form */}
           <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={newTodo}
                 onChange={(e) => setNewTodo(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Add a new task..."
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
-              <Button onClick={handleAddTodo} disabled={addingTodo} loading={addingTodo} icon={<Plus size={18} />}>
+              <Button onClick={handleAddTodo} disabled={addingTodo} loading={addingTodo} icon={<Plus size={18} />} className="shrink-0">
                 Add
               </Button>
             </div>
-            <div className="flex gap-2">
-              <Select value={newPriority} onChange={(e) => setNewPriority(e.target.value)} className="flex-1">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={newPriority} onChange={(e) => setNewPriority(e.target.value)} className="flex-1 min-w-0">
                 <option value="high">High priority</option>
                 <option value="medium">Medium priority</option>
                 <option value="low">Low priority</option>
@@ -467,7 +467,7 @@ export default function TodoList() {
                 type="time"
                 value={newDueTime}
                 onChange={(e) => setNewDueTime(e.target.value)}
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
             </div>
           </div>

@@ -103,7 +103,7 @@ export default function PomodoroTimer() {
       {/* Timer */}
       <Card>
         <CardBody className="flex flex-col items-center gap-6 py-8">
-          <div className={`relative w-64 h-64 transition-transform duration-1000 ${running ? 'scale-[1.01]' : ''}`}>
+          <div className={`relative w-48 h-48 sm:w-64 sm:h-64 transition-transform duration-1000 ${running ? 'scale-[1.01]' : ''}`}>
             <svg className="w-full h-full -rotate-90" viewBox="0 0 260 260">
               <circle cx="130" cy="130" r={r} fill="none" stroke="var(--border)" strokeWidth="8" />
               <circle
@@ -121,7 +121,7 @@ export default function PomodoroTimer() {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-              <div className={`text-5xl font-black tabular-nums ${currentMode.text}`}>
+              <div className={`text-4xl sm:text-5xl font-black tabular-nums ${currentMode.text}`}>
                 {mins}:{secs}
               </div>
               <Badge variant={currentMode.badge}>{currentMode.label}</Badge>

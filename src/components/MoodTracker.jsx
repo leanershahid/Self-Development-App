@@ -142,7 +142,7 @@ export default function MoodTracker() {
           </Card>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <KpiCard label="Days Tracked" value={history.length} icon={<Calendar size={18} />} tone="primary" />
             <KpiCard label="Avg Mood" value={`${avgMood}/5`} icon={<Smile size={18} />} tone="accent" />
             <KpiCard label="Best Streak" value={`${history.filter(d => d.mood >= 4).length}d`} icon={<TrendingUp size={18} />} tone="accent" />

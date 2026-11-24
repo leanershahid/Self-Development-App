@@ -89,15 +89,17 @@ export default function QuickCapture() {
                 className="w-full resize-none rounded-lg border border-[var(--field-border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-primary transition-colors"
               />
             </div>
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-[var(--border)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 border-t border-[var(--border)]">
               <button
                 onClick={() => save(true)}
                 disabled={!text.trim() || saving}
                 className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] transition-colors disabled:opacity-40"
               >
-                <Inbox size={13} /> Save &amp; open inbox
+                <Inbox size={13} />
+                <span className="hidden sm:inline">Save &amp; open inbox</span>
+                <span className="sm:hidden">Open inbox</span>
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-2">
                 <button onClick={close} className="px-3 py-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:bg-[var(--surface-hover)] transition-colors">
                   Cancel
                 </button>

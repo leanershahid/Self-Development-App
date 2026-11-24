@@ -36,6 +36,7 @@ export default function SearchTab({
               placeholder="Job title, role, skills..."
             />
             <Input
+              className="flex-1"
               leadingIcon={<MapPin size={16} />}
               value={location}
               onChange={e => setLocation(e.target.value)}
@@ -60,7 +61,7 @@ export default function SearchTab({
               </Button>
             </div>
             {/* Cover Letter Mode Toggle */}
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)] flex-wrap">
               <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Cover Letter:</span>
               <div className="flex rounded-lg overflow-hidden border border-[var(--border)]">
                 <button onClick={() => setUseAiCoverLetter(false)}

@@ -81,7 +81,7 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
         subtitle="Click a past or today's day to log it — future days are locked"
         action={
           achievements.length > 1 ? (
-            <Select value={achievementId} onChange={(e) => setAchievementId(e.target.value)} className="w-52">
+            <Select value={achievementId} onChange={(e) => setAchievementId(e.target.value)} className="w-36 sm:w-52">
               {achievements.map((a) => (
                 <option key={a.id} value={a.id}>{a.title}</option>
               ))}
@@ -92,7 +92,7 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
       <CardBody className="flex flex-col gap-5">
         {/* Month nav + month stats */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <button
               onClick={() => changeMonth(-1)}
               className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text)] transition-all duration-150 hover:scale-105"
@@ -100,7 +100,7 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
             >
               <ChevronLeft size={18} />
             </button>
-            <span className="text-base font-semibold text-[var(--text)] w-40 text-center font-[var(--font-display)]">{monthLabel}</span>
+            <span className="text-sm sm:text-base font-semibold text-[var(--text)] w-24 sm:w-40 text-center truncate font-[var(--font-display)]">{monthLabel}</span>
             <button
               onClick={() => changeMonth(1)}
               className="w-9 h-9 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text)] transition-all duration-150 hover:scale-105"
@@ -165,7 +165,7 @@ export default function AchievementCalendar({ achievements, onToggleDay }) {
                   disabled={disabled}
                   onClick={() => onToggleDay(achievement.id, dateStr, log)}
                   title={isExcluded ? 'Excluded day — not required' : disabled ? "Can't log this day" : dateStr}
-                  className={`group relative aspect-square flex flex-col items-center justify-center gap-0.5 text-sm font-medium transition-colors duration-200
+                  className={`group relative aspect-square min-w-0 flex flex-col items-center justify-center gap-0.5 text-xs sm:text-sm font-medium transition-colors duration-200
                     border-[var(--border)] ${isLastCol ? '' : 'border-r'} ${isLastRow ? '' : 'border-b'}
                     ${disabled
                       ? 'opacity-30 cursor-not-allowed text-[var(--text-muted)] bg-[var(--bg)]'
