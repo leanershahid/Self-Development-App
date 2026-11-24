@@ -15,18 +15,33 @@ const TODAY = new Date().toISOString().split('T')[0];
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 // Ask Gemini to estimate macros for a food/serving description, as strict JSON.
+// Uses constrained JSON output (responseSchema) instead of prompting for JSON in prose,
+// so the model emits only the four numbers with no preamble/markdown — this is what
+// actually cuts latency, along with a tight maxOutputTokens cap and thinking disabled.
 async function estimateMacrosWithGemini(foodName) {
   if (!GEMINI_API_KEY) throw new Error('Gemini API key not found (VITE_GEMINI_API_KEY).');
-  const prompt = `Estimate the nutrition for this food or serving: "${foodName}".
-Respond with ONLY a compact JSON object, no markdown fences, no extra text, in exactly this shape:
-{"kcal": number, "protein": number, "carbs": number, "fat": number}
-kcal is total calories; protein, carbs, fat are grams. If no quantity is given, assume one typical serving.`;
+  const prompt = `Estimate kcal, protein (g), carbs (g), and fat (g) for: "${foodName}". Assume one typical serving if no quantity is given.`;
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 512, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 100,
+        thinkingConfig: { thinkingBudget: 0 },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            kcal: { type: 'NUMBER' },
+            protein: { type: 'NUMBER' },
+            carbs: { type: 'NUMBER' },
+            fat: { type: 'NUMBER' },
+          },
+          required: ['kcal', 'protein', 'carbs', 'fat'],
+        },
+      },
     }),
   });
   if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
